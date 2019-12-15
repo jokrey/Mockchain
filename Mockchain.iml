@@ -46,5 +46,7 @@
     <orderEntry type="library" name="Maven: org.iq80.leveldb:leveldb:0.12" level="project" />
     <orderEntry type="library" name="Maven: org.iq80.leveldb:leveldb-api:0.12" level="project" />
     <orderEntry type="library" name="Maven: com.google.guava:guava:21.0" level="project" />
+    <orderEntry type="module" module-name="Link2Peer" />
+    <orderEntry type="module" module-name="UtilityAlgorithms" />
   </component>
 </module>

@@ -133,7 +133,7 @@ class GeneralTests {
 
     @Test
     fun testChangeReintroductionToChainMaintainsCorrectHashChain_Persistent() {
-        val chain = Chain(EmptyApplication(), store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/blockStoreTest"), true))
+        val chain = Chain(EmptyApplication(), store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/maintains_Persistent_testDir"), true))
         chain.commitToMemPool(Transaction(contentIsArbitrary()))
         chain.commitToMemPool(tx0)
         chain.performConsensusRound()
@@ -821,7 +821,7 @@ class GeneralTests {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler {
                 return { _, _ -> byteArrayOf(1, 2, 3, 4) }
             }
-        }, store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/blockStoreTest"), true))
+        }, store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/flipHashIsDenied_Persistent_testDir"), true))
 
         val tx0 = Transaction(byteArrayOf(1, 2, 3, 4))
         val tx1 = Transaction(byteArrayOf(1, 2, 3),
