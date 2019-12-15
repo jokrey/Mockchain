@@ -1,10 +1,10 @@
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import squash.BuildUponSquashHandler
-import squash.PartialReplaceSquashHandler
-import storage_classes.*
-import visualization.util.EmptyApplication
-import visualization.util.contentIsArbitrary
+import jokrey.mockchain.squash.BuildUponSquashHandler
+import jokrey.mockchain.squash.PartialReplaceSquashHandler
+import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.visualization.util.EmptyApplication
+import jokrey.mockchain.visualization.util.contentIsArbitrary
 import java.io.File
 import kotlin.test.assertNotEquals
 
@@ -623,7 +623,7 @@ class GeneralTests {
         chain.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
         chain.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        val (_, denied) = squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
 
         println("denied = ${denied}")
 
@@ -647,12 +647,12 @@ class GeneralTests {
         chain.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         //if we used verifyAll here this would work (i.e. correctly deny tx1
-        val (_, denied) = squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
 
         assertEquals(1, denied.size)
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)), denied[0].first)
 
-        val state = squash.findChanges(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, chain.getMemPoolContent())
+        val state = jokrey.mockchain.squash.findChanges(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, chain.getMemPoolContent())
         assertTrue(state.deniedTransactions.isNotEmpty())
 
     }
@@ -669,13 +669,13 @@ class GeneralTests {
 
         chain.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
-        val (_, denied) = squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), chain.getMemPoolContent())
 
 
         assertEquals(1, denied.size)
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
 
-        val state = squash.findChanges(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, chain.getMemPoolContent())
+        val state = jokrey.mockchain.squash.findChanges(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, chain.getMemPoolContent())
         assertTrue(state.deniedTransactions.isNotEmpty())
 
 

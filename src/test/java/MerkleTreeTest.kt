@@ -1,8 +1,8 @@
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import storage_classes.*
-import visualization.util.contentIsArbitrary
+import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.visualization.util.contentIsArbitrary
 
 /**
  *

@@ -1,11 +1,11 @@
 import com.google.common.io.Files
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import jokrey.utilities.debug_analysis_helper.BoxPlotDataGatherer
-import squash.BuildUponSquashHandler
-import squash.PartialReplaceSquashHandler
-import storage_classes.*
-import visualization.util.EmptyApplication
-import visualization.util.contentIsArbitrary
+import jokrey.mockchain.squash.BuildUponSquashHandler
+import jokrey.mockchain.squash.PartialReplaceSquashHandler
+import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.visualization.util.EmptyApplication
+import jokrey.mockchain.visualization.util.contentIsArbitrary
 import java.util.logging.LogManager
 import java.util.*
 import kotlin.collections.ArrayList

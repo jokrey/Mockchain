@@ -1,9 +1,9 @@
-import application.examples.calculator.*
+import jokrey.mockchain.application.examples.calculator.*
 import org.junit.jupiter.api.Test
-import storage_classes.Chain
-import storage_classes.Dependency
-import storage_classes.DependencyType
-import storage_classes.Transaction
+import jokrey.mockchain.storage_classes.Chain
+import jokrey.mockchain.storage_classes.Dependency
+import jokrey.mockchain.storage_classes.DependencyType
+import jokrey.mockchain.storage_classes.Transaction
 import kotlin.test.assertEquals
 
 class CalculatorTest {

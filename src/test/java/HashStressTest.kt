@@ -1,17 +1,14 @@
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import org.junit.jupiter.api.Test
-import squash.BuildUponSquashHandler
-import squash.PartialReplaceSquashHandler
-import storage_classes.Chain
-import storage_classes.DependencyType
-import storage_classes.Transaction
-import storage_classes.dependenciesFrom
-import visualization.util.EmptyApplication
-import visualization.util.contentIsArbitrary
-import java.lang.Long.max
+import jokrey.mockchain.squash.BuildUponSquashHandler
+import jokrey.mockchain.squash.PartialReplaceSquashHandler
+import jokrey.mockchain.storage_classes.Chain
+import jokrey.mockchain.storage_classes.DependencyType
+import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.dependenciesFrom
+import jokrey.mockchain.visualization.util.EmptyApplication
+import jokrey.mockchain.visualization.util.contentIsArbitrary
 import java.util.*
-
-import java.util.logging.LogManager
 
 class HashStressTest {
     @Test

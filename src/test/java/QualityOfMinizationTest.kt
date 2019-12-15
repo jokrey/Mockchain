@@ -1,14 +1,8 @@
-import application.examples.calculator.MashedCalculator
-import application.examples.calculator.MultiStringCalculator
-import application.examples.calculator.SingleStringCalculator
-import application.examples.currency.Currency
-import application.examples.currency.CurrencyWithHistory
-import application.examples.sensornet.SensorNetAnalyzer
-import application.examples.supplychain.SupplyChain
+import jokrey.mockchain.application.examples.sensornet.SensorNetAnalyzer
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import storage_classes.Chain
-import visualization.VisualizableApp
+import jokrey.mockchain.storage_classes.Chain
+import jokrey.mockchain.visualization.VisualizableApp
 import java.util.*
 import java.util.logging.LogManager
 
