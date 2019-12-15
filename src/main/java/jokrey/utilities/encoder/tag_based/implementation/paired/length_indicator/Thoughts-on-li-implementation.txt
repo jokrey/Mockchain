@@ -1,0 +1,26 @@
+Currently - LIe:
+   Basically a storage format to store many byte arrays into one (in order).
+   - Accessing an index is in O(i), where 'i' is the index to be accessed.
+   - Adding a new element depends on the underlying storage.
+       It is in O(1) if the underlying storage supports it,
+           but it often requires reallocation, making it slow
+   - Deleting an index depends on the underlying storage, but as it requires search it is at least in O(i)
+       Depending on storage it often a dangerous and copy-heavy(depending on where the element is in the overall sequence) operation
+           as it requires copying every byte after the deleted section a bunch of bytes back
+           also if something goes back during this operation the entire data after the deleted section maybe invalid
+   ALL of this, of course is a little disadvantages for a part of the use cases..
+       It is good/best for precisely one thing:
+          most efficiently store many sequences of bytes and reading them back in sequence.
+
+Better 1 - BlockLIbae:
+   Each value gets encoded as usually, but the size is always padded to a block size.
+   Instead of the current deletion algorithm the following is done:
+   - Accessing an index is exactly as quick as before
+   - Adding is now in O(<n), as it requires search to determine whether or not a block in the data is empty and unused
+       but it might require less reallocation, so it has that going for it
+   - Deleting is in O(i), but doesn't require copying (making it safer and faster to use)
+       set the header bytes negative, indicating them as unused
+   Problem:
+       the data becomes increasingly segmented
+Better 2 - LinkedBlocksLIe:
+   bloc
