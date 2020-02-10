@@ -9,15 +9,6 @@ import java.util.logging.Logger
 
 val LOG = Logger.getLogger("Chain")
 
-/**
- * Function to create a chain after a shutdown or crash.
- * Loads the given storage model into a newly created chain and applies a replay to the given, freshly created application.
- */
-fun chainFromExistingData(freshApp: Application, store: StorageModel): Chain {
-    val chain = Chain(freshApp, store)
-    chain.applyReplayTo(freshApp)
-    return chain
-}
 
 /**
  * The chain is the core of the mockchain framework.
@@ -30,104 +21,35 @@ fun chainFromExistingData(freshApp: Application, store: StorageModel): Chain {
  * It will access the internal storage model and provides methods for users to query it as well.
  * The storage should not be mutated from outside this chain.
  */
-class Chain(val app:Application,
-            private val store: StorageModel = NonPersistentStorage(),
-            var squashEveryNRounds: Int = -1) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
-
-    private val memPool = MemPool()
-
+class Chain(val app: Application,
+            private val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
     /**
-     * Commits the given transaction to the internal Mempool.
-     * If the hash of the transaction is known to the chain it will be rejected and the application will be notified.
-     *
-     * The given transaction has to have an unset blockId, i.e. one that is smaller than 0. Otherwise the chain could not override that field.
+     * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction
      */
-    fun commitToMemPool(tx: Transaction) {
-        if(store[tx.hash] != null || memPool[tx.hash] != null) {
-            // - this 'fix' does not work in a distributed environment, it does! txs are guaranteed to be equal, memPool should also be synchronized
-            app.txRejected(this, tx.hash, tx, RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field"))
-            throw IllegalArgumentException("hash already known to chain this is illegal for now, due to the hash uniqueness problem - tx: $tx")
-        }
-        if(tx.blockId >= 0)
-            throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty")
-        LOG.info("tx committed to mem pool = $tx")
-        memPool[tx.hash] = tx
-    }
-
-
-    private var consensusRoundCounter = 0
-    private var priorSquashState: SquashAlgorithmState? = null
-
-    /**
-     * Will commit the Mempool to the 'permanent' chain, under the verify and squash rules
-     */
-    fun performConsensusRound(forceSquash: Boolean = false) {
-        consensusRoundCounter++
-
-        val proposedTransactions = memPool.getTransactions().toMutableList()
-
-        //VERIFICATION
-        //Verified by popular vote within application(s) - actual distributed consensus omitted from this prototype
-        var newSquashState:SquashAlgorithmState? = null
-        var rejectedTxCount: Int
-        do {
-            rejectedTxCount=0
-            //app verify needs to be before squash verify - otherwise if a tx is rejected here it no longer exists, but squash verify did not know that
-            AverageCallTimeMarker.mark_call_start("app verify")
-            val appRejectedTransactions = app.verify(this, *proposedTransactions.toTypedArray())
-            proposedTransactions.removeAll(appRejectedTransactions.map { it.first })
-            rejectedTxCount += appRejectedTransactions.size
-            handleRejection(appRejectedTransactions)
-            AverageCallTimeMarker.mark_call_end("app verify")
-
-            if(newSquashState!=null && (proposedTransactions.isEmpty() || rejectedTxCount == 0))
-                break // if app does not reject anything after a squash run, then squash is not required to be run again - because nothing changed
-
-            AverageCallTimeMarker.mark_call_start("squash verify")
-            newSquashState = jokrey.mockchain.squash.findChanges(this, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(),
-                                                                priorSquashState, proposedTransactions.toTypedArray())
-            proposedTransactions.removeAll(newSquashState.deniedTransactions.map { it.first })
-            rejectedTxCount += newSquashState.deniedTransactions.size
-            handleRejection(newSquashState.deniedTransactions)
-            AverageCallTimeMarker.mark_call_end("squash verify")
-        } while(proposedTransactions.isNotEmpty() && (rejectedTxCount > 0 || newSquashState!!.deniedTransactions.isNotEmpty()))
-
-        newSquashState as SquashAlgorithmState
-
-        if (proposedTransactions.isEmpty()) {
-            LOG.info("all transactions have been rejected - not creating a new block")
-            assert(memPool.isEmpty())
-        }
-
+    fun appendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState, proposedTransactions: MutableList<Transaction>, proof: Proof) {
         //SQUASH
-        if(forceSquash || (squashEveryNRounds>0 && consensusRoundCounter % squashEveryNRounds == 0)) {
+        if (squash) {
             AverageCallTimeMarker.mark_call_start("introduceChanges")
             val newlyProposedTx = introduceChanges(newSquashState.virtualChanges, proposedTransactions.toTypedArray())
             AverageCallTimeMarker.mark_call_end("introduceChanges")
 
             newSquashState.reset()
             proposedTransactions.clear()
-            memPool.clear()
             proposedTransactions.addAll(newlyProposedTx)
         }
-        priorSquashState = newSquashState
-
 
         //STORAGE
-
         //persist transactions to chain (i.e. bundle and add as block[omitted dependenciesFrom prototype]):
-        if(proposedTransactions.isNotEmpty()) {
+        if (proposedTransactions.isNotEmpty()) {
             AverageCallTimeMarker.mark_call_start("persist new block")
             val newlyAdded = LinkedList<TransactionHash>()
             for (tx in proposedTransactions) {
-                memPool.remove(tx.hash)
                 val txp = tx.hash
 
                 store[txp] = tx.withBlockId(store.highestBlockId() + 1)
                 newlyAdded.add(txp)
             }
-            if(!memPool.isEmpty()) throw IllegalStateException("Mem pool should be empty")
-            val newBlock = Block(getLatestHash(), newlyAdded)
+            val newBlock = Block(getLatestHash(), proof, newlyAdded)
             store.add(newBlock)
             AverageCallTimeMarker.mark_call_end("persist new block")
 
@@ -141,19 +63,6 @@ class Chain(val app:Application,
         }
     }
 
-    private fun handleRejection(rejected: List<Pair<Transaction, RejectionReason>>) {
-        for ((rejectedTransaction, reason) in rejected) {
-            if(rejectedTransaction.hash !in memPool) {
-                if(rejectedTransaction.hash !in store)
-                    throw IllegalStateException("$reason rejected unknown transaction(hash=${rejectedTransaction.hash})")
-                else
-                    throw IllegalStateException("$reason rejected persisted transaction(hash=${rejectedTransaction.hash})")
-            }
-            memPool.remove(rejectedTransaction.hash)
-            app.txRejected(this, rejectedTransaction.hash, rejectedTransaction, reason)
-            LOG.info("$reason rejected: $rejectedTransaction")
-        }
-    }
 
     private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>): Array<Transaction> {
         LOG.info("squashChanges = ${changes}")
@@ -218,6 +127,7 @@ class Chain(val app:Application,
             if(!mutation.isEmpty())
                 mutatedBlocks[oldTX.blockId] = mutation
         }
+
 
         if(mutatedBlocks.isNotEmpty()) {
             var currentBlockId = mutatedBlocks.minBy { it.key }!!.key
@@ -318,17 +228,17 @@ class Chain(val app:Application,
     /**
      * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will thrown an exepction
      */
-    override operator fun get(aHash: TransactionHash) = getUnsure(aHash)!!
+    override operator fun get(hash: TransactionHash) = getUnsure(hash)!!
     /**
      * Returns the transaction at the given hash from the Mempool or permanent memory - or null if the hash is not resolvable
      */
-    override fun getUnsure(aHash: TransactionHash): Transaction? {
-        return memPool[aHash] ?: store[aHash]
+    override fun getUnsure(hash: TransactionHash): Transaction? {
+        return store[hash]
     }
     /**
      * Returns true if the hash is known to the chain, false if it is not resolvable
      */
-    operator fun contains(aHash: TransactionHash) = memPool.contains(aHash) || isPersisted(aHash)
+    override operator fun contains(hash: TransactionHash) = isPersisted(hash)
     /**
      * Returns trust if the hash is stored in permanent memory
      */
@@ -359,18 +269,8 @@ class Chain(val app:Application,
      * Adds the current size of the permanent storage and the Mempool to roughly calculate the current size of the chain
      */
     fun calculateStorageRequirementsInBytes() : Long {
-        return store.byteSize() +
-               memPool.byteSize()
+        return store.byteSize()
     }
-
-    /**
-     * Returns all transactions currently in the Mempool
-     */
-    fun getMemPoolContent(): Array<Transaction> = memPool.getTransactions().toTypedArray()
-    /**
-     * Returns all transaction hashes currently in the Mempool
-     */
-    fun getMemPoolHashes(): Array<TransactionHash> = memPool.getTransactionHashes().toTypedArray()
 
     /**
      * Returns the latest hash currently known to the chain. Can be used to efficiently compare block chains.
@@ -381,6 +281,4 @@ class Chain(val app:Application,
      * Returns an iterator over all persisted transactions
      */
     fun getPersistedTransactions() = store.txIterator()
-
-
 }

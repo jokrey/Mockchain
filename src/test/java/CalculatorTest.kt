@@ -1,6 +1,7 @@
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.examples.calculator.*
+import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
 import org.junit.jupiter.api.Test
-import jokrey.mockchain.storage_classes.Chain
 import jokrey.mockchain.storage_classes.Dependency
 import jokrey.mockchain.storage_classes.DependencyType
 import jokrey.mockchain.storage_classes.Transaction
@@ -18,8 +19,8 @@ class CalculatorTest {
         //(fix): 2. ADD LOGIC TO SQUASH ALGORITHM THAT WILL ALTER MEM POOL DEPENDENCIES  ((THIS IS NOW DONE - ACTUALLY WAS AT THE TIME BUT I FORGOT))
         //           however - this essentially just shifts the problem - it becomes possible at commit time to verify that the dependency exists, but after that... (if anything outside of app and chain is caching a dependency for the future - there is NOTHING that can be done about this)
 
-        val variations: Array<Pair<Int, Chain>> = arrayOf(Pair(1, Chain(SingleStringCalculator(), squashEveryNRounds = -1)), Pair(1, Chain(SingleStringCalculator(), squashEveryNRounds = 1)), Pair(1, Chain(SingleStringCalculator(), squashEveryNRounds = 10))
-                ,Pair(10, Chain(SingleStringCalculator(), squashEveryNRounds = -1)), Pair(10, Chain(SingleStringCalculator(), squashEveryNRounds = 10)), Pair(10, Chain(SingleStringCalculator(), squashEveryNRounds = 10))
+        val variations: Array<Pair<Int, Int>> = arrayOf(Pair(1, /* squashEveryNRounds*/ -1), Pair(1, /* squashEveryNRounds*/ 1), Pair(1, /* squashEveryNRounds*/ 10)
+                ,Pair(10, /* squashEveryNRounds*/ -1), Pair(10, /* squashEveryNRounds*/ 10), Pair(10, /* squashEveryNRounds*/ 10)
         )
 
         var result = 0.0
@@ -53,8 +54,9 @@ class CalculatorTest {
 
         var definiteState:String? = null
         for(variation in variations) {
-            val (performConsensusEvery, chain) = variation
-            val app = (chain.app as SingleStringCalculator)
+            val (performConsensusEvery, squashEveryNRounds) = variation
+            val app = SingleStringCalculator()
+            val instance = Mockchain(app, ManualConsensusAlgorithmCreator(squashEveryNRounds))
 
 //            println("variation; consensusEvery: $performConsensusEvery, squashEvery: ${chain.squashEveryNRounds}")
 
@@ -66,12 +68,12 @@ class CalculatorTest {
                     Transaction(calc.toTxContent(), Dependency(last.hash, DependencyType.BUILDS_UPON), Dependency(last.hash, DependencyType.REPLACES))
                 app.addLastInString(calc.string, new)
                 println("calc = ${calc}")
-                chain.commitToMemPool(new)
+                instance.commitToMemPool(new)
 
                 if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mempool
-                    chain.performConsensusRound()
+                    instance.consensus.performConsensusRound()
             }
-            chain.performConsensusRound()
+            instance.consensus.performConsensusRound()
 
             if(definiteState==null)
                 definiteState = app.exhaustiveStateDescriptor()
@@ -80,12 +82,12 @@ class CalculatorTest {
 
             assertEquals(result, app.getResults()[0])
 
-            chain.performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
             assertEquals(definiteState, app.exhaustiveStateDescriptor())
 
             val freshCompareAppAfter = app.getEqualFreshCreator()() as MashedCalculator
-            chain.applyReplayTo(freshCompareAppAfter)
+            instance.chain.applyReplayTo(freshCompareAppAfter)
 
             assertEquals(result, freshCompareAppAfter.getResults()[0])
             assertEquals(definiteState, freshCompareAppAfter.exhaustiveStateDescriptor())

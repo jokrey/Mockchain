@@ -5,11 +5,12 @@ package jokrey.mockchain.storage_classes
  *
  * Transactions are stored in a map, mapping hashes to transactions.
  */
-class MemPool {
+class MemPool : TransactionResolver {
     private val data = LinkedHashMap<TransactionHash, Transaction>() //PRESERVES ORDER, THIS MAY BE IMPORTANT IN SOME USE CASES
 
-    operator fun get(hash: TransactionHash) = data[hash]
-    operator fun contains(hash: TransactionHash) = data.containsKey(hash)
+    override operator fun get(hash: TransactionHash) = data[hash]!!
+    override fun getUnsure(hash: TransactionHash) = data[hash]
+    override operator fun contains(hash: TransactionHash) = data.containsKey(hash)
     operator fun set(hash: TransactionHash, value: Transaction) = data.set(hash, value)
     fun remove(hash: TransactionHash) = data.remove(hash)
     fun isNotEmpty() = data.isNotEmpty()

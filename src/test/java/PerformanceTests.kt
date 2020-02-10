@@ -1,4 +1,5 @@
 import com.google.common.io.Files
+import jokrey.mockchain.Mockchain
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import jokrey.utilities.debug_analysis_helper.BoxPlotDataGatherer
 import jokrey.mockchain.squash.BuildUponSquashHandler
@@ -94,7 +95,7 @@ class PerformanceTests {
         var numberOfCurrentlyPersistedTransactions = 0
 
         val selectedPrevious = ArrayList<TransactionHash>(100)
-        val chain = Chain(object:EmptyApplication() {
+        val instance = Mockchain(object:EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler
                     = {list, b -> list.flatMap { half(it).asIterable() }.toByteArray()+half(b) }
 
@@ -157,13 +158,13 @@ class PerformanceTests {
                     selectedPrevious.add(genTx.hash)
 
                 numberOfCurrentlyPersistedTransactions++
-                chain.commitToMemPool(genTx)
+                instance.commitToMemPool(genTx)
                 numberOfGeneratedTx++
             } catch(ex: Exception) {
                 ex.printStackTrace()
             }
 
-            maxStorageRequirements = max(maxStorageRequirements, chain.calculateStorageRequirementsInBytes())
+            maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             maxPersistedTransactions = max(maxPersistedTransactions, numberOfCurrentlyPersistedTransactions)
 
 
@@ -173,7 +174,7 @@ class PerformanceTests {
                         AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                        BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
                     }
-                        chain.performConsensusRound(squash)
+                        instance.consensus.performConsensusRound(squash)
                 numberOfGeneratedBlocks++
                     if(squash) {
                         AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
@@ -186,15 +187,15 @@ class PerformanceTests {
                     }
             }
 
-            maxStorageRequirements = max(maxStorageRequirements, chain.calculateStorageRequirementsInBytes())
+            maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             maxPersistedTransactions = max(maxPersistedTransactions, numberOfCurrentlyPersistedTransactions)
         }
 
             if(squashEnd){ AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
             }
-        chain.performConsensusRound(squashEnd)
-        maxStorageRequirements = max(maxStorageRequirements, chain.calculateStorageRequirementsInBytes())
+        instance.consensus.performConsensusRound(squashEnd)
+        maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             if(squashEnd) { AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_end(callIdRelevantSection)
                 numberOfSquashes++
@@ -205,7 +206,7 @@ class PerformanceTests {
 
         if(print) {
             println("$callId\nended(numberOfSquashes=$numberOfSquashes, numberOfBlocks=$numberOfGeneratedBlocks, numberOfGeneratedTx=$numberOfGeneratedTx)")
-            println("RAW STORAGE REQUIREMENTS: after: " + chain.calculateStorageRequirementsInBytes() + "bytes, max: " + maxStorageRequirements + "bytes")
+            println("RAW STORAGE REQUIREMENTS: after: " + instance.calculateStorageRequirementsInBytes() + "bytes, max: " + maxStorageRequirements + "bytes")
             println("PERSISTED TRANSACTION COUNT: after: " + numberOfCurrentlyPersistedTransactions + "txs, max: " + maxPersistedTransactions + "txs")
         }
     }

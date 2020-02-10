@@ -1,6 +1,8 @@
 package jokrey.mockchain.squash
 
 import jokrey.mockchain.application.Application
+import jokrey.mockchain.chainFromExistingData
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.storage_classes.*
 import java.util.*
 
@@ -26,7 +28,7 @@ fun getRandomBlockQuerier(queriers: List<BlockQuerier>) =
 fun addBlockFrom(store: StorageModel, previousBlockHash: Hash?, blockTxs: Array<Transaction>) {
     for(btx in blockTxs)
         store[btx.hash] = btx
-    store.add(Block(previousBlockHash, blockTxs.map { it.hash }.toTypedArray()))
+    store.add(Block(previousBlockHash, Proof(ByteArray(0)), blockTxs.map { it.hash }.toTypedArray())) //todo - missing proof support
 }
 
 
@@ -113,8 +115,8 @@ fun catchUpWithSquash(freshApp: Application, catchUpToBlockId: Int,
     //todo        it is NOT possible to simply assume the earlier tx to be the valid/earlier hash - due to partial-replace
 
 
-    val chain: Chain = chainFromExistingData(freshApp, store)
-    val resultValid = chain.validateHashChain()
+    val instance = chainFromExistingData(freshApp, store)
+    val resultValid = instance.chain.validateHashChain()
     if(!resultValid)
         throw IllegalStateException("could not gather a consistent state - try again")
 

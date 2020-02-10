@@ -94,11 +94,11 @@ fun findChanges(chain: Chain,
                 buildUponCallback: BuildUponSquashHandler,
                 sequenceCallback: SequenceSquashHandler,
                 priorState: SquashAlgorithmState?,
-                memPool: Array<Transaction>): SquashAlgorithmState {
+                proposed: Array<Transaction>): SquashAlgorithmState {
 
     //important pre-condition ensured by selectStateAndSubset:
     // 1. Every tx of tx.bDependencies of every tx in 'selectStateAndSubset' is also in 'selectStateAndSubset'
-    val (state, selectedSubset) = selectStateAndSubset(chain, priorState, memPool)
+    val (state, selectedSubset) = selectStateAndSubset(chain, priorState, proposed)
 
     //important pre-conditions ensured by dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies:
     // 1. Every Transaction's dependencies are at a smaller index than the transaction itself + the entire dependency tree exists + acyclic
@@ -111,7 +111,8 @@ fun findChanges(chain: Chain,
     for(tx in sortedFilteredTxToConsider) {
         if(tx.bDependencies.isEmpty()) continue
 
-        determineStateAlterationsFrom(tx, chain, state, partialReplaceCallback, buildUponCallback, sequenceCallback)
+        val resolver = proposed.asTxResolver().combineWith(chain)
+        determineStateAlterationsFrom(tx, resolver, state, partialReplaceCallback, buildUponCallback, sequenceCallback)
     }
 
     return state
@@ -142,14 +143,14 @@ fun handleSortDeniedTxs(state: SquashAlgorithmState, denied: List<Transaction>) 
 }
 
 fun determineStateAlterationsFrom(tx: Transaction,
-                                  chain: Chain, state: SquashAlgorithmState,
+                                  resolver: TransactionResolver, state: SquashAlgorithmState,
                                   partialReplaceCallback: PartialReplaceSquashHandler,
                                   buildUponCallback: BuildUponSquashHandler,
                                   sequenceCallback: SequenceSquashHandler) {
     try {
-        val uncommittedState = findChangesForTx(tx, chain, state, buildUponCallback, partialReplaceCallback, sequenceCallback)
+        val uncommittedState = findChangesForTx(tx, resolver, state, buildUponCallback, partialReplaceCallback, sequenceCallback)
 
-        verifyAllHashesAvailable(chain, state, uncommittedState)
+        verifyAllHashesAvailable(resolver, state, uncommittedState)
 
         commitState(state, uncommittedState)
     } catch (ex: Exception) {
@@ -157,7 +158,7 @@ fun determineStateAlterationsFrom(tx: Transaction,
     }
 }
 
-fun findChangesForTx(tx: Transaction, chain: Chain, state: SquashAlgorithmState,
+fun findChangesForTx(tx: Transaction, resolver: TransactionResolver, state: SquashAlgorithmState,
                      buildUponCallback: BuildUponSquashHandler,
                      partialReplaceCallback: PartialReplaceSquashHandler,
                      sequenceCallback: SequenceSquashHandler): SquashAlgorithmState {
@@ -165,29 +166,29 @@ fun findChangesForTx(tx: Transaction, chain: Chain, state: SquashAlgorithmState,
 
     val uncommittedState = generateUncommittedState(state)
 
-    handleBuildUponDependencies(tx, buildUponCallback, chain, state, uncommittedState)
+    handleBuildUponDependencies(tx, buildUponCallback, resolver, state, uncommittedState)
 
-    handleReplaceDependencies(tx, chain, state, uncommittedState)
+    handleReplaceDependencies(tx, resolver, state, uncommittedState)
 
-    handlePartialReplaceDependencies(tx, partialReplaceCallback, chain, state, uncommittedState)
+    handlePartialReplaceDependencies(tx, partialReplaceCallback, resolver, state, uncommittedState)
 
     handleReplacedByDependencies(tx, state, uncommittedState)
 
-    handleSequenceDependencies(tx, sequenceCallback, chain, state, uncommittedState)
+    handleSequenceDependencies(tx, sequenceCallback, resolver, state, uncommittedState)
 
     return uncommittedState
 }
 
 fun handleBuildUponDependencies(tx: Transaction, buildUponCallback: BuildUponSquashHandler,
-                                chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+                                resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     val buildUponDependencies = tx.bDependencies.filter { it.type == DependencyType.BUILDS_UPON }
     val dependenciesWithUpdatedContent = ArrayList<ByteArray>(buildUponDependencies.size)
     for (dependency in buildUponDependencies) {
-        val toBuildUponContent = latestTxContent(chain, state, uncommittedState, dependency.txp, failIfSequence = false)
+        val toBuildUponContent = latestTxContent(resolver, state, uncommittedState, dependency.txp, failIfSequence = false)
         dependenciesWithUpdatedContent.add(toBuildUponContent)
     }
     if (dependenciesWithUpdatedContent.isNotEmpty()) {
-        val newContent = buildUponCallback(dependenciesWithUpdatedContent, latestTxContent(chain, state, uncommittedState, tx.hash))
+        val newContent = buildUponCallback(dependenciesWithUpdatedContent, latestTxContent(resolver, state, uncommittedState, tx.hash))
         when {
             newContent == null || newContent.isEmpty() -> {
                 overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Deletion)
@@ -198,7 +199,7 @@ fun handleBuildUponDependencies(tx: Transaction, buildUponCallback: BuildUponSqu
 }
 
 fun handleReplaceDependencies(tx: Transaction,
-                              chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+                              resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     val replaceDependencies = tx.bDependencies.filter { it.type == DependencyType.REPLACES }
     for (dependency in replaceDependencies) {
         when(latestChange(state, uncommittedState, dependency.txp)) {
@@ -206,7 +207,7 @@ fun handleReplaceDependencies(tx: Transaction,
             is VirtualChange.PartOfSequence -> throw SquashRejectedException("dependency is part of sequence should be considered deleted and can therefore not be replaced")
             VirtualChange.Deletion -> throw SquashRejectedException("prohibited 1 to n dependency on replace edge (no two transactions can replace the same transaction[dev error, not ignored because it goes against the principle of minimization])")
             null, is VirtualChange.DependencyAlteration, is VirtualChange.Alteration -> { //changes have to be legal here now, because build-upon edges, might incrementally alter, but later request deletion
-                if(! chain.contains(dependency.txp))
+                if(! resolver.contains(dependency.txp))
                     throw SquashRejectedException("unresolved dependency detected")
                 overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion)
                 uncommittedState.virtualChanges.computeIfAbsent(tx.hash) {VirtualChange.DependencyAlteration(emptyArray())} //does nothing(causes no problems) if any other edge alters txp
@@ -216,10 +217,10 @@ fun handleReplaceDependencies(tx: Transaction,
 }
 
 fun handlePartialReplaceDependencies(tx: Transaction, partialReplaceCallback: PartialReplaceSquashHandler,
-                                     chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+                                     resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     val replacePartialDependencies = tx.bDependencies.filter { it.type == DependencyType.REPLACES_PARTIAL }
     for (dependency in replacePartialDependencies) {
-        val toPartiallyReplaceContent = latestTxContent(chain, state, uncommittedState, dependency.txp, failIfSequence = true)
+        val toPartiallyReplaceContent = latestTxContent(resolver, state, uncommittedState, dependency.txp, failIfSequence = true)
         val newContent = partialReplaceCallback(toPartiallyReplaceContent, latestTxContent(state, uncommittedState, tx.hash, failIfSequence =true) {tx.content})
         if(newContent == null || newContent.isEmpty()) { //all of it has been replaced
             overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion)
@@ -241,7 +242,7 @@ fun handleReplacedByDependencies(tx: Transaction,
 
 
 fun handleSequenceDependencies(tx: Transaction, sequenceCallback: SequenceSquashHandler,
-                               chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+                               resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     val sequenceDependencies = tx.bDependencies.filter(DependencyType.SEQUENCE_PART, DependencyType.SEQUENCE_END)
     if(sequenceDependencies.isEmpty()) return
 
@@ -250,7 +251,7 @@ fun handleSequenceDependencies(tx: Transaction, sequenceCallback: SequenceSquash
         throw SquashRejectedException("a tx cannot be part of multiple sequences - n to 1 on sequence edge detected")
     if(latestChange(state, uncommittedState, tx.hash) == VirtualChange.Deletion)
         throw SquashRejectedException("sequence tx cannot be deleted")
-    if(! chain.contains(dependency.txp))
+    if(! resolver.contains(dependency.txp))
         throw SquashRejectedException("unresolved dependency detected")
 
     if(dependency.txp in state.sequences)
@@ -259,7 +260,7 @@ fun handleSequenceDependencies(tx: Transaction, sequenceCallback: SequenceSquash
     if (dependency.type == DependencyType.SEQUENCE_PART) {
         handleSequencePartDependency(tx, dependency, state, uncommittedState)
     } else if (dependency.type == DependencyType.SEQUENCE_END) {
-        handleSequenceEndDependency(tx, sequenceCallback, chain, state, uncommittedState)
+        handleSequenceEndDependency(tx, sequenceCallback, resolver, state, uncommittedState)
     }
 }
 
@@ -286,19 +287,19 @@ fun handleSequencePartDependency(tx: Transaction, dependency: Dependency,
 }
 
 fun handleSequenceEndDependency(tx:Transaction, sequenceCallback: SequenceSquashHandler,
-                                chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+                                resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     val sequence = LinkedList<ByteArray>()
 
     var prior: TransactionHash
     var priorDependencies = tx.bDependencies
-    sequence.add(latestTxContent(chain, state, uncommittedState, tx.hash))
+    sequence.add(latestTxContent(resolver, state, uncommittedState, tx.hash))
     do {
         // the sequence part checks ensure this always works
         prior = priorDependencies.find(DependencyType.SEQUENCE_PART, DependencyType.SEQUENCE_END).txp
-        sequence.addFirst(latestTxContent(chain, state, uncommittedState, prior, false))
+        sequence.addFirst(latestTxContent(resolver, state, uncommittedState, prior, false))
         overrideChangeAt(state, uncommittedState, prior, VirtualChange.Deletion)
 
-        priorDependencies = chain[prior].bDependencies
+        priorDependencies = resolver[prior].bDependencies
     } while(priorDependencies.size == 1 && priorDependencies.any { it.type == DependencyType.SEQUENCE_PART } )
 
     overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Alteration(sequenceCallback(sequence)))
@@ -369,9 +370,9 @@ fun overrideChangeAt(state: SquashAlgorithmState, uncommittedState: SquashAlgori
     }
 }
 
-fun latestTxContent(chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState, txp: TransactionHash, failIfSequence: Boolean = true) =
+fun latestTxContent(resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState, txp: TransactionHash, failIfSequence: Boolean = true) =
         latestTxContent(state, uncommittedState, txp, failIfSequence) {
-            chain.getUnsure(txp)?.content ?: throw SquashRejectedException("resolving dependency($txp) failed")
+            resolver.getUnsure(txp)?.content ?: throw SquashRejectedException("resolving dependency($txp) failed")
         }
 fun latestTxContent(state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState, txp: TransactionHash, failIfSequence: Boolean, contentQuery: () -> ByteArray) =
     latestTxContent(uncommittedState, txp, failIfSequence) {
@@ -393,12 +394,12 @@ fun latestTxContent(state: SquashAlgorithmState, txp: TransactionHash, failIfSeq
 
 
 
-tailrec fun verifyAllHashesAvailable(chain:Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
+tailrec fun verifyAllHashesAvailable(resolver:TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     var redo = false
     for ((uncommittedTxp, uncommittedChange) in uncommittedState.virtualChanges.filter { it.value is VirtualChange.Alteration }) {
         if (uncommittedChange is VirtualChange.Alteration) {
             val newTxp = TransactionHash(uncommittedChange.newContent)
-            if (!hashAvailable(uncommittedTxp, newTxp, chain, state, uncommittedState))
+            if (!hashAvailable(uncommittedTxp, newTxp, resolver, state, uncommittedState))
                 throw SquashRejectedException("an edge generated a tx with hash content that already exists in the chain ($uncommittedTxp -> $newTxp)")
 
             val indexOfThisChange = uncommittedState.virtualChanges.keys.indexOf(uncommittedTxp)
@@ -417,10 +418,10 @@ tailrec fun verifyAllHashesAvailable(chain:Chain, state: SquashAlgorithmState, u
         }
     }
     if(redo)
-        verifyAllHashesAvailable(chain, state, uncommittedState)
+        verifyAllHashesAvailable(resolver, state, uncommittedState)
 }
 fun hashAvailable(oldTxp: TransactionHash, newTxp: TransactionHash,
-                  chain: Chain, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState): Boolean {
+                  resolver: TransactionResolver, state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState): Boolean {
     if(oldTxp == newTxp) return true
     val latestReserver = latestReserver(state, uncommittedState, newTxp)
     if(latestReserver == null || latestReserver == oldTxp) {
@@ -433,12 +434,12 @@ fun hashAvailable(oldTxp: TransactionHash, newTxp: TransactionHash,
                 val nextHash = TransactionHash(latestChangeAtNewTxp.newContent)
 
                 if(nextHash == latestReserver) return false // this indicates a hash flip - something that cannot be handled by a hash collision detecting reintroduction algorithm
-                if (hashAvailable(newTxp, nextHash, chain, state, uncommittedState)) {
+                if (hashAvailable(newTxp, nextHash, resolver, state, uncommittedState)) {
                     return true
                 }
             }
         } else {
-            if (newTxp !in chain)
+            if (newTxp !in resolver)
                 return true
         }
     }
@@ -561,24 +562,24 @@ fun fillLevelsFor(txs: Iterable<Transaction>): Map<Transaction, Int> {
     return levels
 }
 
-private fun fillLevels(txResolver: TransactionResolver, txs: Iterable<Transaction>):Map<Transaction, Int> {
+private fun fillLevels(transactionResolver: TransactionResolver, txs: Iterable<Transaction>):Map<Transaction, Int> {
     val levels = HashMap<Transaction, Int>()
-    fillLevels(txResolver, levels, txs)
+    fillLevels(transactionResolver, levels, txs)
     return levels
 }
-private fun fillLevels(txResolver: TransactionResolver, levels:HashMap<Transaction, Int>, txs: Iterable<Transaction>) {
-    txs.forEach { updateLevel(txResolver, levels, it) }
+private fun fillLevels(transactionResolver: TransactionResolver, levels:HashMap<Transaction, Int>, txs: Iterable<Transaction>) {
+    txs.forEach { updateLevel(transactionResolver, levels, it) }
 }
 
 /**
- * Updates the level of the given tx and of all it's available dependencies (queried through txResolver)
+ * Updates the level of the given tx and of all it's available dependencies (queried through TransactionResolver)
  *    Will not run the same tree twice
  *    TransactionResolver is expected to return the same results throughout the run of this algorithm.
  *    Levels is expected to be a thread private map
  * Checks for illegal reflexive or dependency-loop and marks their levels as a negative number.
  * -1 for a reflexive loop, and -2 for a multi-dependency loop
  */
-private fun updateLevel(txResolver: TransactionResolver, levels:HashMap<Transaction, Int>, tx:Transaction?):Int {
+private fun updateLevel(transactionResolver: TransactionResolver, levels:HashMap<Transaction, Int>, tx:Transaction?):Int {
     return when {
         tx == null -> //can occur if a map is used as the tx resolver - for example if a block is supposed to be sorted, without regard for dependencies in blocks before
                       //  then this is assumed as a hard border, because blocks order is regarded as superior to level order
@@ -597,9 +598,9 @@ private fun updateLevel(txResolver: TransactionResolver, levels:HashMap<Transact
                     return -1 //reflexive(or hash collision) dependency detected, this tx will no longer be considered and marked as illegal for any caller
                 }
 
-                val resolvedDepTx = txResolver.getUnsure(dep.txp)
+                val resolvedDepTx = transactionResolver.getUnsure(dep.txp)
 
-                val depLevel = levels[resolvedDepTx] ?: updateLevel(txResolver, levels, resolvedDepTx)
+                val depLevel = levels[resolvedDepTx] ?: updateLevel(transactionResolver, levels, resolvedDepTx)
 
                 if(depLevel < 0) {
                     return -2 //multi-level dependency loop detected, this tx will no longer be considered and marked as illegal for any caller

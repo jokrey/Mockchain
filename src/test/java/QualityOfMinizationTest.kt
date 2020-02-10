@@ -1,7 +1,7 @@
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.examples.sensornet.SensorNetAnalyzer
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import jokrey.mockchain.storage_classes.Chain
 import jokrey.mockchain.visualization.VisualizableApp
 import java.util.*
 import java.util.logging.LogManager
@@ -33,29 +33,29 @@ class QualityOfMinizationTest {
             val random = Random(i.toLong())
 
             val app = source.getEqualFreshCreator()()
-            val chain = Chain(app, squashEveryNRounds = -1)
-            while(chain.getPersistedTransactions().asSequence().count() < numberOfTxToGenerate) {
-                val new = app.next(chain, txI.toLong(), random)
+            val instance = Mockchain(app)
+            while(instance.chain.getPersistedTransactions().asSequence().count() < numberOfTxToGenerate) {
+                val new = app.next(instance, txI.toLong(), random)
                 if (new.isPresent) {
                     try {
-                        chain.commitToMemPool(new.get())
+                        instance.commitToMemPool(new.get())
                     } catch (ex: IllegalArgumentException) {
                         txRejectedAtMemPool++
                     } //hash uniqueness not guaranteed by app.next
                 }
                 txI++
                 if(txI % blockEvery == 0)
-                    chain.performConsensusRound()
+                    instance.consensus.performConsensusRound()
             }
-            chain.performConsensusRound()
+            instance.consensus.performConsensusRound()
 
-            val before = chain.calculateStorageRequirementsInBytes()
-            val beforeTxCount = chain.getPersistedTransactions().asSequence().count()
+            val before = instance.calculateStorageRequirementsInBytes()
+            val beforeTxCount = instance.chain.getPersistedTransactions().asSequence().count()
 
-            chain.performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
-            val after = chain.calculateStorageRequirementsInBytes()
-            val afterTxCount = chain.getPersistedTransactions().asSequence().count()
+            val after = instance.calculateStorageRequirementsInBytes()
+            val afterTxCount = instance.chain.getPersistedTransactions().asSequence().count()
 
             val dif = before - after
 

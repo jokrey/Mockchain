@@ -15,19 +15,21 @@ open class Block: Iterable<TransactionHash> {
      *
      * It also builds the Merkle tree of the transaction hashes.
      */
-    constructor(previousBlockHash: Hash?, txs: Array<TransactionHash>) {
+    constructor(previousBlockHash: Hash?, proof: Proof, txs: Array<TransactionHash>) {
         this.previousBlockHash = previousBlockHash
+        this.proof = proof
         this.txs = txs.clone()
         this.merkleRoot = rebuildMerkleRoot()
     }
-    constructor(previousBlockHash: Hash?, txs: Collection<TransactionHash>) : this(previousBlockHash, txs.toTypedArray())
+    constructor(previousBlockHash: Hash?, proof: Proof, txs: Collection<TransactionHash>) : this(previousBlockHash, proof, txs.toTypedArray())
 
     /**
      * Internal use only.
      */
-    private constructor(previousBlockHash: Hash?, txs: Array<TransactionHash>, merkleRoot: Hash) {
+    private constructor(previousBlockHash: Hash?, proof: Proof, txs: Array<TransactionHash>, merkleRoot: Hash) {
         this.previousBlockHash = previousBlockHash
         this.txs = txs
+        this.proof = proof
         this.merkleRoot = merkleRoot
     }
 
@@ -40,6 +42,7 @@ open class Block: Iterable<TransactionHash> {
         val previousBlockHashRaw = decoder.next()
         previousBlockHash = if(previousBlockHashRaw.size==32) Hash(previousBlockHashRaw, true) else null
         merkleRoot = Hash(decoder.next(), true)
+        proof = Proof(decoder.next())
         txs = if(decoder.hasNext())
             decoder.next(-1).map { TransactionHash(Hash(it, true)) }.toTypedArray()
         else
@@ -51,7 +54,7 @@ open class Block: Iterable<TransactionHash> {
      */
     fun encode() : ByteArray {
         val encoder = LIbae()
-        encoder.encode(previousBlockHash?.getHash() ?: byteArrayOf(1), merkleRoot.getHash(), *txs.map { it.getHash() }.toTypedArray())
+        encoder.encode(previousBlockHash?.getHash() ?: byteArrayOf(1), merkleRoot.getHash(), proof.getRaw(), *txs.map { it.getHash() }.toTypedArray())
         return encoder.encodedBytes
     }
 
@@ -64,6 +67,11 @@ open class Block: Iterable<TransactionHash> {
      * Merkle root of the transactions
      */
     val merkleRoot: Hash
+
+    /**
+     * Proof of validity, content and semantics completely depend on consensus algorithm
+     */
+    val proof: Proof
 
     /**
      * Generates and returns the block hash, i.e. the hash of the header of this block.
@@ -103,17 +111,18 @@ open class Block: Iterable<TransactionHash> {
         val cloned = txs.clone()
         val i = cloned.indexOf(oldHash)
         cloned[i] = newHash
-        return Block(previousBlockHash, cloned)
+        return Block(previousBlockHash, proof, cloned)
     }
-    fun rebuildWithout(previousBlockHash: Hash?, oldHash: TransactionHash) = Block(previousBlockHash, txs.toList().filter { it != oldHash }.toTypedArray())
+    fun rebuildWithout(previousBlockHash: Hash?, oldHash: TransactionHash) = Block(previousBlockHash, proof, txs.toList().filter { it != oldHash }.toTypedArray())
     fun rebuildWithDeletionsAndChanges(previousBlockHash: Hash?, changes: LinkedList<Pair<TransactionHash, TransactionHash>>, deletions: LinkedList<TransactionHash>): Block {
         val cloned = txs.toList().filter { !deletions.contains(it) }.toTypedArray()
         for((before, after) in changes)
             cloned[cloned.indexOf(before)] = after
-        return Block(previousBlockHash, cloned)
+        //todo - proof might need to be changed - BUT TO WHAT THO?? - maybe just a flag?
+        return Block(previousBlockHash, proof, cloned)
     }
     fun changePreviousHash(newPreviousHash: Hash?): Block {
-        return Block(newPreviousHash, txs, merkleRoot) // does without cloning txs or recalculating merkle root - as fast as can be
+        return Block(newPreviousHash, proof, txs, merkleRoot) // does without cloning txs or recalculating merkle root - as fast as can be
     }
 
 

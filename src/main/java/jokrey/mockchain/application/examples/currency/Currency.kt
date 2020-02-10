@@ -1,5 +1,6 @@
 package jokrey.mockchain.application.examples.currency
 
+import jokrey.mockchain.Mockchain
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
@@ -76,7 +77,7 @@ class Currency : VisualizableApp {
 
     private val possibleNames = arrayOf("Peter", "Mathilda", "Hans", "Ulrich", "Margaretha", "Augusta")
     private fun randomName(random: Random) = if(balances.isNotEmpty()) balances.keys.toList()[random.nextInt(balances.size)] else possibleNames[random.nextInt(possibleNames.size)]
-    override fun next(chain: Chain, step: Long, random: Random) = Optional.of(
+    override fun next(instance: Mockchain, step: Long, random: Random) = Optional.of(
             when {
                 step == 3L -> Transaction(Registration("Friederike", INITIAL_MONEY).toTxContent())
                 step % 8 == 0L && balances.size != possibleNames.size -> Transaction(Registration(possibleNames[random.nextInt(possibleNames.size)], INITIAL_MONEY).toTxContent())

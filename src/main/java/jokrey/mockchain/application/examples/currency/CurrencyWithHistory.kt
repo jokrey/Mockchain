@@ -1,5 +1,6 @@
 package jokrey.mockchain.application.examples.currency
 
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.VisualizableApp
 import java.util.*
@@ -60,7 +61,7 @@ class CurrencyWithHistory : VisualizableApp {
 
     private val possibleNames = arrayOf("Peter", "Mathilda", "Hans", "Ulrich", "Margaretha", "Augusta")
     private fun randomName(random: Random) = possibleNames[random.nextInt(possibleNames.size)]
-    override fun next(chain: Chain, step: Long, random: Random) = Optional.of(
+    override fun next(instance: Mockchain, step: Long, random: Random) = Optional.of(
             when {
                 step == 3L -> Transaction(Registration("Friederike", INITIAL_MONEY).toTxContent())
                 step % 8 == 0L -> Transaction(Registration(randomName(random), INITIAL_MONEY).toTxContent())

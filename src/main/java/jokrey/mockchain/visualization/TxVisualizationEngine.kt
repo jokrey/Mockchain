@@ -1,5 +1,6 @@
 package jokrey.mockchain.visualization
 
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.EmptyTransactionGenerator
 import jokrey.mockchain.application.TransactionGenerator
 import jokrey.utilities.animation.engine.TickEngine
@@ -24,14 +25,14 @@ import kotlin.collections.HashMap
  *
  * Examples of how to use the engine can be found in {@link VisualizationStarter}
  */
-open class TxVisualizationEngine(private val chain: Chain, private val txGen:TransactionGenerator = EmptyTransactionGenerator(), private val appDisplay:ApplicationDisplay, var consensusEveryNTick:Int) : TickEngine() {
+open class TxVisualizationEngine(private val instance: Mockchain, private val txGen:TransactionGenerator = EmptyTransactionGenerator(), private val appDisplay:ApplicationDisplay, var consensusEveryNTick:Int) : TickEngine() {
     override fun initiate() {}
     override fun calculateTickImpl() {
         println("tick($currentTick)")
-        val generatedTransaction = txGen.next(chain, currentTick, Random())
+        val generatedTransaction = txGen.next(instance, currentTick, Random())
         if(generatedTransaction.isPresent) {
             try {
-                chain.commitToMemPool(generatedTransaction.get())
+                instance.commitToMemPool(generatedTransaction.get())
             } catch (ex: java.lang.IllegalArgumentException) {
                 ex.printStackTrace()
             }
@@ -39,9 +40,9 @@ open class TxVisualizationEngine(private val chain: Chain, private val txGen:Tra
 
         if(consensusEveryNTick < 0) {
             if(Random().nextInt(-consensusEveryNTick) == 0)
-                chain.performConsensusRound()
+                instance.consensus.performConsensusRound()
         } else if(currentTick % consensusEveryNTick == 0L)
-            chain.performConsensusRound()
+            instance.consensus.performConsensusRound()
     }
     override fun getTicksPerSecond(): Int {
         return 1
@@ -50,7 +51,8 @@ open class TxVisualizationEngine(private val chain: Chain, private val txGen:Tra
     private var gridWidth = 1.0
     private var gridHeight = 1.0
     private fun setBlocksToDisplay(chainBlocks: Array<Block>, memPoolHashes: Array<TransactionHash>) {
-        val blocks = (chainBlocks + Block(null, memPoolHashes))
+        val blocks = (chainBlocks + Block(null, Proof(ByteArray(0)), memPoolHashes))
+        val resolver = instance.memPool.combineWith(instance.chain)
 
         clearObjects()
         gridHeight = 1.0
@@ -68,7 +70,7 @@ open class TxVisualizationEngine(private val chain: Chain, private val txGen:Tra
                     } else {
                         try {
                             //levels will NOT contain previous - and previously calculated - data!!! NOT a to do
-                            var levels = fillLevelsFor(block.map { chain[it] })
+                            var levels = fillLevelsFor(block.map { resolver[it] })
                             levels = levels.toList().sortedBy { (_, value) -> value }.toMap()
 
                             var yCounter = 0.75
@@ -142,9 +144,11 @@ open class TxVisualizationEngine(private val chain: Chain, private val txGen:Tra
 
 
     fun recalculateTransactionDisplay() {
-        setBlocksToDisplay(chain.getBlocks(), chain.getMemPoolHashes())
+        setBlocksToDisplay(instance.chain.getBlocks(), instance.memPool.getTransactionHashes().toTypedArray())
     }
     private fun paintSequence(tx:Transaction, levels:Map<Transaction, Int>, alreadyPainted:MutableMap<Transaction, TransactionDisplayObject>, xOffset: Double, yCounterAtStart:Double, txIsMemPool: Boolean) : Double {
+        val resolver = instance.memPool.combineWith(instance.chain)
+
         var yCounter = yCounterAtStart
         if(!alreadyPainted.contains(tx)) {
 
@@ -157,7 +161,7 @@ open class TxVisualizationEngine(private val chain: Chain, private val txGen:Tra
                 alreadyPainted[tx] = created
 
                 for ((dep_txp, deps) in tx.bDependencies.groupBy { it.txp }) {
-                    val resolvedDepTx = chain.getUnsure(dep_txp)
+                    val resolvedDepTx = resolver.getUnsure(dep_txp)
                     if (resolvedDepTx != null) {
                         yCounter = paintSequence(resolvedDepTx, levels, alreadyPainted, xOffset, yCounter, txIsMemPool)
 

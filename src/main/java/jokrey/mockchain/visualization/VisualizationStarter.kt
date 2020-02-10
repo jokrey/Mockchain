@@ -1,5 +1,6 @@
 package jokrey.mockchain.visualization
 
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.TransactionGenerator
 import jokrey.mockchain.application.examples.calculator.MashedCalculator
 import jokrey.mockchain.application.examples.calculator.MultiStringCalculator
@@ -8,6 +9,7 @@ import jokrey.mockchain.application.examples.currency.Currency
 import jokrey.mockchain.application.examples.currency.CurrencyWithHistory
 import jokrey.mockchain.application.examples.sensornet.SensorNetAnalyzer
 import jokrey.mockchain.application.examples.supplychain.SupplyChain
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.utilities.animation.engine.AnimationEngine
 import jokrey.utilities.animation.implementations.swing.display.AnimationJPanel
 import jokrey.utilities.animation.implementations.swing.display.Swing_FullScreenStarter
@@ -15,7 +17,6 @@ import jokrey.utilities.animation.implementations.swing.pipeline.AnimationDrawer
 import jokrey.utilities.animation.pipeline.AnimationPipeline
 import jokrey.utilities.animation.util.AEColor
 import jokrey.utilities.animation.util.AERect
-import jokrey.mockchain.storage_classes.Chain
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
 import java.awt.BorderLayout
@@ -100,8 +101,9 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
     val txGen:TransactionGenerator = app
     val appDisplay: ApplicationDisplay = app
 
-    val chain = Chain(app, squashEveryNRounds = squashEveryNRounds)
-    val engine = TxVisualizationEngine(chain, txGen, appDisplay, consensusEveryNTicks)
+    val instance = Mockchain(app)
+    (instance.consensus as ManualConsensusAlgorithm).squashEveryNRounds = squashEveryNRounds
+    val engine = TxVisualizationEngine(instance, txGen, appDisplay, consensusEveryNTicks)
     var ap: AnimationJPanel? = null
     val pipe = object: AnimationPipeline(AnimationDrawerSwing()) {
         override fun drawForeground(drawBounds: AERect, engine: AnimationEngine?) {
@@ -138,19 +140,19 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
 
     //ui functionality
     squashJB.addActionListener {
-        chain.performConsensusRound(false) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
+        instance.consensus.performConsensusRound(false) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
 
-        val priorStorageRequirements = chain.calculateStorageRequirementsInBytes()
+        val priorStorageRequirements = instance.calculateStorageRequirementsInBytes()
 
         val stateBeforeString = appDisplay.exhaustiveStateDescriptor()
         println("         state before: $stateBeforeString")
 
         val freshCompareAppBefore = app.getEqualFreshCreator()()
-        chain.applyReplayTo(freshCompareAppBefore)
+        instance.chain.applyReplayTo(freshCompareAppBefore)
         val replayedStateBeforeString = freshCompareAppBefore.exhaustiveStateDescriptor()
         println("replayed state before: $replayedStateBeforeString")
 
-        chain.performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
 
         engine.recalculateTransactionDisplay()
         pipe.resetDrawBounds(engine)
@@ -159,17 +161,17 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
         println("         state after:  $stateAfterString")
 
         val freshCompareAppAfter = app.getEqualFreshCreator()()
-        chain.applyReplayTo(freshCompareAppAfter)
+        instance.chain.applyReplayTo(freshCompareAppAfter)
 
         val replayedStateAfterString = freshCompareAppAfter.exhaustiveStateDescriptor()
         println("replayed state after:  $replayedStateAfterString")
 
-        val afterStorageRequirements = chain.calculateStorageRequirementsInBytes()
+        val afterStorageRequirements = instance.calculateStorageRequirementsInBytes()
 
 
         val allStateStringsEqual = arrayOf(stateBeforeString, replayedStateBeforeString, stateAfterString, replayedStateAfterString).allEqual()
 
-        val chainHashesValid = chain.validateHashChain()
+        val chainHashesValid = instance.chain.validateHashChain()
 
         println("all state strings equal:  $allStateStringsEqual")
         println("chain hashes valid:  $chainHashesValid")
@@ -182,7 +184,7 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
             throw SadException("SQUASH INCREASED DATA SIZE :(")
     }
     performConsensusJB.addActionListener {
-        chain.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         engine.recalculateTransactionDisplay()
         if(pipe.userDrawBoundsMidOverride==null)
@@ -226,7 +228,7 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
         override fun removeUpdate(e: DocumentEvent?) = change()
         fun change() {
             if(squashEveryNConsensusRoundsInputField.getText().isNotEmpty())
-                chain.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
+                instance.consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
         }
     })
 
@@ -237,7 +239,7 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
             if (input == null)
                 throw NullPointerException()
             else
-                chain.commitToMemPool(app.createTxFrom(input))
+                instance.commitToMemPool(app.createTxFrom(input))
         } catch (e: Exception) {
             e.printStackTrace()
             JOptionPane.showMessageDialog(frame, "Error - could not generate transaction\n${e.message}")
@@ -250,7 +252,7 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
 
     applicationChooser.addActionListener {
         try {
-            startApplicationChooser(frame, app, chain.squashEveryNRounds, engine.consensusEveryNTick)
+            startApplicationChooser(frame, app, instance.consensus.squashEveryNRounds, engine.consensusEveryNTick)
             frame.dispose()
         } catch(e: CancellationException) {
         } catch(e: Exception) {

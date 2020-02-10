@@ -1,5 +1,6 @@
 package jokrey.mockchain.application.examples.supplychain
 
+import jokrey.mockchain.Mockchain
 import jokrey.utilities.encoder.as_union.li.bytes.LIbae
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.serialization.LIObjectEncoderFull
@@ -140,7 +141,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
 
     private val wayPointsToSimulate = ArrayList<SupplyRouteMember>(totalNumberOfWayPointsToGenerate)
     private var lastStep = 0L
-    override fun next(chain: Chain, step: Long, random: Random): Optional<Transaction> {
+    override fun next(instance: Mockchain, step: Long, random: Random): Optional<Transaction> {
         //this bypasses the traditional return what should be added to the chain, by directly adding to the chain
         //    this is legal.
 
@@ -148,13 +149,13 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
             val generateSize = (random.nextInt((wayPointsPerRouteLimit+1) - 2) + 2).
                     coerceAtMost(totalNumberOfWayPointsToGenerate - wayPointsToSimulate.size)
             val routeName = "route-" + wayPointsToSimulate.size
-            chain.commitToMemPool(generateRoute(routeName, generateSize, random.nextInt(10000) + 20L))
+            instance.commitToMemPool(generateRoute(routeName, generateSize, random.nextInt(10000) + 20L))
         }
 
         wayPointsToSimulate.forEach {
             val new = it.next(step)
             if(new != null)
-                chain.commitToMemPool(new)
+                instance.commitToMemPool(new)
         }
 
         lastStep = step

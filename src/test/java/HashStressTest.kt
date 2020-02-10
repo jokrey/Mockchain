@@ -1,8 +1,7 @@
-import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
+import jokrey.mockchain.Mockchain
 import org.junit.jupiter.api.Test
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
-import jokrey.mockchain.storage_classes.Chain
 import jokrey.mockchain.storage_classes.DependencyType
 import jokrey.mockchain.storage_classes.Transaction
 import jokrey.mockchain.storage_classes.dependenciesFrom
@@ -35,7 +34,7 @@ class HashStressTest {
         val random_seed = Random().nextLong()//caused nice issues with seed 1, but now it has to prove it doesn't cause issues ever
         println("Seed: $random_seed") // for replayability in case of emergency
         val random = Random(random_seed)
-        val chain = Chain(object: EmptyApplication() {
+        val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler
                     = {list, b -> list.flatMap { half(it).asIterable() }.toByteArray()+half(b) }
 
@@ -48,7 +47,7 @@ class HashStressTest {
         var numberOfGeneratedTx = 0
         var numberOfGeneratedBlocks = 0
         for(i in 0 until genTxNum) {
-            val previous = chain.getMemPoolContent() + chain.getPersistedTransactions().asSequence().toList()
+            val previous = instance.memPool.getTransactions() + instance.chain.getPersistedTransactions().asSequence().toList()
             try {
                 if(previous.size > depNumPerTx*2) {
                     val depsOn = Array(depNumPerTx) {
@@ -56,9 +55,9 @@ class HashStressTest {
                         previous[rand].hash
                     }
                     val noDoubles = depsOn.toSet().toTypedArray()
-                    chain.commitToMemPool(Transaction(contentIsArbitrary(random, minTxSize, maxTxSize), *dependenciesFrom(DependencyType.BUILDS_UPON, *noDoubles) + dependenciesFrom(DependencyType.REPLACES_PARTIAL, *noDoubles)))
+                    instance.commitToMemPool(Transaction(contentIsArbitrary(random, minTxSize, maxTxSize), *dependenciesFrom(DependencyType.BUILDS_UPON, *noDoubles) + dependenciesFrom(DependencyType.REPLACES_PARTIAL, *noDoubles)))
                 } else {
-                    chain.commitToMemPool(Transaction(contentIsArbitrary(random, minTxSize, maxTxSize)))
+                    instance.commitToMemPool(Transaction(contentIsArbitrary(random, minTxSize, maxTxSize)))
                 }
                 numberOfGeneratedTx++
             } catch(ex: Exception) {
@@ -67,11 +66,11 @@ class HashStressTest {
 
             if(numberOfGeneratedTx % blockEveryTx == 0) {
                 val squash = numberOfGeneratedBlocks!=0 && numberOfGeneratedBlocks % squashEveryBlock == 0
-                chain.performConsensusRound(squash)
+                instance.consensus.performConsensusRound(squash)
                 numberOfGeneratedBlocks++
             }
         }
 
-        chain.performConsensusRound(squashEnd)
+        instance.consensus.performConsensusRound(squashEnd)
     }
 }

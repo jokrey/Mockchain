@@ -1,5 +1,6 @@
 package jokrey.mockchain.application.examples.sensornet
 
+import jokrey.mockchain.Mockchain
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
@@ -62,7 +63,7 @@ class SensorNetAnalyzer: VisualizableApp {
 
     private val possibleNames: Array<String> = arrayOf("Straße", "Haus", "Auto", "Garage")
     private var lastStep = 0L
-    override fun next(chain: Chain, step: Long, random: Random): Optional<Transaction> {
+    override fun next(instance: Mockchain, step: Long, random: Random): Optional<Transaction> {
         val pastDayToMinimize = 51
         if (step != 0L && getDay(step - pastDayToMinimize) != getDay(step - (pastDayToMinimize-1))) {
             val today = getDay(step - pastDayToMinimize) //meaning 10 steps ago was the switch - how much this needs to be depends on mem pool size - in a real world application this makes no difference
@@ -71,7 +72,7 @@ class SensorNetAnalyzer: VisualizableApp {
                 val list = sensorData[name]!!
                 val dayToSquash = list.filter { it.day == today }
                 val txsOfNameAndDay = dayToSquash.map { sd -> sd.getTx(name) }.toTypedArray()
-                chain.commitToMemPool(SensorResult(step - pastDayToMinimize, Double.NaN, true).getTx(name, *dependenciesFrom(DependencyType.REPLACES, *txsOfNameAndDay) + dependenciesFrom(DependencyType.BUILDS_UPON, *txsOfNameAndDay)))
+                instance.commitToMemPool(SensorResult(step - pastDayToMinimize, Double.NaN, true).getTx(name, *dependenciesFrom(DependencyType.REPLACES, *txsOfNameAndDay) + dependenciesFrom(DependencyType.BUILDS_UPON, *txsOfNameAndDay)))
             }
         }
 

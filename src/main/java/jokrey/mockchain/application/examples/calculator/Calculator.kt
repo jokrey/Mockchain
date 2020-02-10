@@ -1,5 +1,6 @@
 package jokrey.mockchain.application.examples.calculator
 
+import jokrey.mockchain.Mockchain
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
@@ -161,7 +162,7 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         for (string in calcFromTx(newTx).strings)
             addLastInString(string, newTx)
     }
-    override fun next(chain: Chain, step: Long, random: Random): Optional<Transaction> {
+    override fun next(instance: Mockchain, step: Long, random: Random): Optional<Transaction> {
         val newTx = when {
             step < numberOfInitialStates -> {
                 Transaction(Initial(strings = intArrayOf(step.toInt())).toTxContent())
