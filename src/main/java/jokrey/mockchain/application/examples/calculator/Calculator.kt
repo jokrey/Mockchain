@@ -50,7 +50,7 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     fun getResults() = results.toList().sortedBy { it.first }.map { it.second }
     fun getRawResults():HashMap<Int, Double> = results.clone() as HashMap<Int, Double>
 
-    override fun verify(chain: Chain, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val virtualResults = results.clone() as HashMap<Int, Double>
 
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
@@ -89,9 +89,9 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     }
 
 
-    override fun newBlock(chain: Chain, block: Block) {
+    override fun newBlock(instance: Mockchain, block: Block) {
         for(txp in block) {
-            val tx = chain[txp]
+            val tx = instance[txp]
             val calculation = calcFromTx(tx)
 
             if(!tryUpdateResult(results, calculation))
@@ -131,15 +131,15 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         }
     }
 
-    override fun txRemoved(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
-    override fun txAltered(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
+    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
+    override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         for(string in calcFromTx(oldTx).strings) {
             val oldIndex = lastTransactionsInString(string).indexOf(oldTx)
             if(oldIndex>=0 && oldIndex < lastTransactionsInString(string).size)
                 lastTransactionsInString(string)[oldIndex] = newTx
         }
     }
-    override fun txRejected(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
+    override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
         for(string in calcFromTx(oldTx).strings)
             lastTransactionsInString(string).remove(oldTx)
     }

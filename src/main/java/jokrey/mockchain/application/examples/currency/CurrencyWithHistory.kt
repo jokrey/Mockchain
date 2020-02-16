@@ -17,7 +17,7 @@ class CurrencyWithHistory : VisualizableApp {
     private val balances = HashMap<String, Long>()
     private val history = ArrayList<Triple<String, String, Long>>()
 
-    override fun verify(chain: Chain, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         val virtualBalances = balances.toMutableMap() //creates a copy
@@ -37,9 +37,9 @@ class CurrencyWithHistory : VisualizableApp {
         return denied
     }
 
-    override fun newBlock(chain: Chain, block: Block) {
+    override fun newBlock(instance: Mockchain, block: Block) {
         for(txp in block) {
-            val tx = chain[txp]
+            val tx = instance[txp]
             executeTransaction(balances, tx = tx)
             val csp = crrFromTx(tx)
             if(csp is ValueTransaction) {
@@ -48,9 +48,9 @@ class CurrencyWithHistory : VisualizableApp {
         }
     }
 
-    override fun txRemoved(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) { }
-    override fun txAltered(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) { }
-    override fun txRejected(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {}
+    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) { }
+    override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) { }
+    override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {}
 
     override fun shortDescriptor(tx: Transaction) = crrFromTx(tx).toShortString()
     override fun longDescriptor(tx: Transaction) = crrFromTx(tx).toString()

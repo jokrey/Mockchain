@@ -3,6 +3,7 @@ package jokrey.mockchain.visualization
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.EmptyTransactionGenerator
 import jokrey.mockchain.application.TransactionGenerator
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.utilities.animation.engine.TickEngine
 import jokrey.utilities.animation.pipeline.AnimationObject
 import jokrey.utilities.animation.pipeline.AnimationObjectDrawer
@@ -38,11 +39,13 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
             }
         }
 
-        if(consensusEveryNTick < 0) {
-            if(Random().nextInt(-consensusEveryNTick) == 0)
-                instance.consensus.performConsensusRound()
-        } else if(currentTick % consensusEveryNTick == 0L)
-            instance.consensus.performConsensusRound()
+        if(instance.consensus is ManualConsensusAlgorithm) {
+            if (consensusEveryNTick < 0) {
+                if (Random().nextInt(-consensusEveryNTick) == 0)
+                    instance.consensus.performConsensusRound(false)
+            } else if (currentTick % consensusEveryNTick == 0L)
+                instance.consensus.performConsensusRound(false)
+        }
     }
     override fun getTicksPerSecond(): Int {
         return 1

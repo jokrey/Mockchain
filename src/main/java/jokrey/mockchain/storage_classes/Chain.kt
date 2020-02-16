@@ -1,5 +1,6 @@
 package jokrey.mockchain.storage_classes
 
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.Application
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import jokrey.mockchain.squash.SquashAlgorithmState
@@ -22,18 +23,34 @@ val LOG = Logger.getLogger("Chain")
  * The storage should not be mutated from outside this chain.
  */
 class Chain(val app: Application,
-            private val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
+            private val instance: Mockchain,
+            internal val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
+    private var priorSquashState: SquashAlgorithmState? = null
+    internal fun squashVerify(proposed: List<Transaction>) : SquashAlgorithmState {
+        return jokrey.mockchain.squash.findChanges(this, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(),
+                priorSquashState, proposed.toTypedArray())
+    }
+
     /**
      * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction
+     *
+     * todo - i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
      */
-    fun appendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState, proposedTransactions: MutableList<Transaction>, proof: Proof) {
-        //SQUASH
-        if (squash) {
-            AverageCallTimeMarker.mark_call_start("introduceChanges")
-            val newlyProposedTx = introduceChanges(newSquashState.virtualChanges, proposedTransactions.toTypedArray())
-            AverageCallTimeMarker.mark_call_end("introduceChanges")
+    internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>) {
+        //change app state based on added transactions
+        app.newBlock(instance, relayBlock)
 
-            newSquashState.reset()
+        val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
+
+        //SQUASH
+        val squashStateToIntroduce = newSquashState?: priorSquashState
+        priorSquashState = squashStateToIntroduce
+        if (squash && squashStateToIntroduce != null) {
+            val newlyProposedTx = introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray())
+            // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+            //     solve: app is presented with the relay block
+
+            squashStateToIntroduce.reset()
             proposedTransactions.clear()
             proposedTransactions.addAll(newlyProposedTx)
         }
@@ -49,25 +66,33 @@ class Chain(val app: Application,
                 store[txp] = tx.withBlockId(store.highestBlockId() + 1)
                 newlyAdded.add(txp)
             }
-            val newBlock = Block(getLatestHash(), proof, newlyAdded)
+            val latestHash = getLatestHash()
+            if(latestHash != relayBlock.previousBlockHash) throw IllegalStateException("latestHash != relayBlock.previousBlockHash")
+            val newBlock = Block(relayBlock.previousBlockHash, relayBlock.proof, newlyAdded)
             store.add(newBlock)
             AverageCallTimeMarker.mark_call_end("persist new block")
 
             //commit changes generated during squash and addition of newest block (required to be done before app.newBlock, because that one is likely to query the store)
             store.commit()
 
-            //change app state based on added transactions
-            app.newBlock(this, newBlock)
+            instance.consensus.notifyNewLatestBlock(newBlock)
         } else {
             store.commit()
+
+            LOG.fine("No transactions would be in new block after verification and squash - NOT creating empty block")
         }
     }
 
 
     private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>): Array<Transaction> {
-        LOG.info("squashChanges = ${changes}")
-        introduceSquashChangesToChain(changes)
-        return introduceSquashChangesToList(changes, proposed)
+        try {
+            AverageCallTimeMarker.mark_call_start("introduceChanges")
+            instance.log("squashChanges = ${changes}")
+            introduceSquashChangesToChain(changes)
+            return introduceSquashChangesToList(changes, proposed)
+        } finally {
+            AverageCallTimeMarker.mark_call_end("introduceChanges")
+        }
     }
 
     private class VirtualBlockMutation {
@@ -92,7 +117,7 @@ class Chain(val app: Application,
                     mutation.deletions.add(oldHash)
 
                     try {
-                        app.txRemoved(this, oldHash, oldTX, true)
+                        app.txRemoved(instance, oldHash, oldTX, true)
                     } catch (t: Throwable) {
                         LOG.severe("App threw exception on txRemoved - which will be ignored")
                     }
@@ -106,7 +131,7 @@ class Chain(val app: Application,
                     mutation.changes.add(Pair(oldHash, newHash))
 
                     try {
-                        app.txAltered(this, oldHash, oldTX, newHash, newTX, true)
+                        app.txAltered(instance, oldHash, oldTX, newHash, newTX, true)
                     } catch (t: Throwable) {
                         LOG.severe("App threw exception on txAltered - which will be ignored")
                     }
@@ -165,14 +190,14 @@ class Chain(val app: Application,
 
             when (change) {
                 VirtualChange.Deletion -> {
-                    app.txRemoved(this, proposedTx.hash, proposedTx, false)
+                    app.txRemoved(instance, proposedTx.hash, proposedTx, false)
                     squashedTx.removeIf {it.hash == proposedTx.hash}
                 }
                 is VirtualChange.Alteration -> {
                     val newTx = Transaction(change.newContent)
                     squashedTx.removeIf {it.hash == proposedTx.hash}
                     squashedTx.add(newTx)
-                    app.txAltered(this, proposedTx.hash, proposedTx, newTx.hash, newTx, false)
+                    app.txAltered(instance, proposedTx.hash, proposedTx, newTx.hash, newTx, false)
                 }
                 is VirtualChange.DependencyAlteration, is VirtualChange.PartOfSequence -> {
                     change as VirtualChange.DependencyAlteration
@@ -197,7 +222,7 @@ class Chain(val app: Application,
     fun applyReplayTo(freshApp: Application) {
         //Verify omitted for obvious reasons
         for(block in store) {
-            freshApp.newBlock(this, block)
+            freshApp.newBlock(instance, block)
         }
     }
 

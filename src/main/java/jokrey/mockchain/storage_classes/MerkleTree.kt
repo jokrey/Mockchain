@@ -9,13 +9,25 @@ import kotlin.math.log2
  *
  * Allows generation, partial verification and extraction of the merkle root. The later is the only part strictly required for basic blockchain behavior.
  */
-class MerkleTree(vararg leafs: Hash) {
-    internal val tree = generateMerkleTree(*leafs).toTypedArray()
-    internal val numberOfLeaves = leafs.size
+
+private val DEFAULT_ROOT_FOR_EMPTY_TREE: Hash = Hash(byteArrayOf(1))
+
+class MerkleTree {
+    constructor(vararg leafs: Hash) {
+        this.tree = generateMerkleTree(*leafs).toTypedArray()
+        this.numberOfLeaves = leafs.size
+    }
+    constructor(leafs: List<Hash>) {
+        this.tree = generateMerkleTree(*leafs.toTypedArray()).toTypedArray()
+        this.numberOfLeaves = leafs.size
+    }
+
+    internal val tree: Array<Hash>
+    internal val numberOfLeaves: Int
 
     fun getPartialVerificationTreeFor(leafIndex: Int) = getPartialVerificationTreeFor(this, leafIndex)
 
-    fun getRoot(): Hash = tree.last()
+    fun getRoot(): Hash = if(tree.isEmpty()) DEFAULT_ROOT_FOR_EMPTY_TREE else tree.last()
 
     override fun hashCode(): Int {
         return getRoot().hashCode()

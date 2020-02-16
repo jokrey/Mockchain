@@ -1,17 +1,53 @@
 package jokrey.mockchain
 
 import jokrey.mockchain.application.Application
+import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
+import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
+import jokrey.mockchain.consensus.ProofOfWorkConsensus
+import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.network.ChainNode
+import jokrey.mockchain.storage_classes.*
+import jokrey.utilities.network.link2peer.P2LNode
+import jokrey.utilities.network.link2peer.P2Link
 
 
 /**
- * mockchain but with proper consensus and network - TODO
+ * mockchain, but with proper consensus and network. So it is not really a 'mock'chain anymore..
+ * more 'not a mockchain' or nockchain.. I know it sucks as a name, but what do you have? A better one. Whoo.., I doubt it.
+ *
+ * Should be used exactly like the Mockchain. To the user it is only extended by the connect methods that allow connecting to peers by a link.
+ * Additionally it is discouraged to use the ManualConsensusAlgorithm.
+ *
+ * TODO - missing fork and catch up algorithm. I.e. the chain currently has to be synchronous between all nodes - adding new nodes on the fly is not possible.
  */
-class Nockchain(app: Application) {
+class Nockchain(app: Application,
+                val selfLink: P2Link,
+                store: StorageModel = NonPersistentStorage(),
+                consensusAlgorithm: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, ImmutableByteArray(selfLink.bytesRepresentation))) : Mockchain(app, store, consensusAlgorithm) {
+    private val node = ChainNode(selfLink, 10, this)
 
+    /** @see P2LNode.establishConnections */
+    fun connect(vararg links: P2Link) {
+        node.connect(*links)
+    }
+    /** @see P2LNode.recursiveGarnerConnections */
+    fun recursiveConnect(connectionLimit:Int, vararg links: P2Link) {
+        node.recursiveConnect(connectionLimit, *links)
+    }
 
-//    private val node : ChainNode? =
-//            if (selfLink != null)
-//                ChainNode(selfLink, 10)
-//            else null
+    override fun commitToMemPool(tx: Transaction, local: Boolean) {
+        super.commitToMemPool(tx, local)
+
+        if(local)
+            node.broadcastTx(tx)
+    }
+
+    override fun notifyNewLocalBlockAdded(block: Block) {
+        super.notifyNewLocalBlockAdded(block)
+        node.relayValidBlock(block)
+    }
+
+    override fun log(s: String) {
+        System.err.println("$selfLink - $s")
+    }
 }

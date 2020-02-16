@@ -21,6 +21,7 @@ class GeneralTests {
     @Test
     fun testSimpleWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(tx1)
@@ -35,6 +36,7 @@ class GeneralTests {
     @Test
     fun testSimpleBuildUponDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
@@ -49,6 +51,7 @@ class GeneralTests {
     @Test
     fun testDoubleDependenciesDenied() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
@@ -60,6 +63,7 @@ class GeneralTests {
     @Test
     fun testSimpleReplaceDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -76,6 +80,7 @@ class GeneralTests {
     @Test
     fun testSimpleSequenceDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -94,36 +99,38 @@ class GeneralTests {
     @Test
     fun testUnresolvedDependencyCausesDenial() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
     }
 
     @Test
     fun testChangeReintroductionToChainMaintainsCorrectHashChain() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON), Dependency(tx2.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON), Dependency(tx3.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         val previous = instance.chain.getLatestHash()
 
@@ -136,26 +143,27 @@ class GeneralTests {
     @Test
     fun testChangeReintroductionToChainMaintainsCorrectHashChain_Persistent() {
         val instance = Mockchain(EmptyApplication(), store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/maintains_Persistent_testDir"), true))
+        instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON), Dependency(tx2.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON), Dependency(tx3.hash, DependencyType.REPLACES)))
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         val previous = instance.chain.getLatestHash()
 
@@ -168,27 +176,30 @@ class GeneralTests {
     @Test
     fun testReflexiveDependencyIsBlocked() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
     }
 
     @Test
     fun testSimpleDependencyLoopIsBlocked() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
     }
 
     @Test
     fun testComplexDependencyLoopIsBlocked() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx4.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
@@ -196,13 +207,14 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx2.hash, DependencyType.REPLACES))) //a dependency on a dependency loop is rightfully denied
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
     }
 
     @Test
     fun testDependencyLoopDoesNotEliminateLegalTx() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(Transaction(tx0.content))
 
@@ -210,7 +222,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES), Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(tx0, instance.chain.getPersistedTransactions().asSequence().toList().first())
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
     }
@@ -218,6 +230,7 @@ class GeneralTests {
     @Test
     fun testDoubleReplaceDenied() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -245,11 +258,12 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
 
@@ -264,12 +278,13 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
 
@@ -281,33 +296,36 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
     }
 
     @Test
     fun testIllegalSequencesNto1() {
-        val instance = Mockchain(EmptyApplication())
+        val instance = Mockchain(EmptyApplication())    
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(tx1)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART), Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
     }
 
     @Test
     fun testIllegalSequences1toN() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -315,7 +333,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -324,13 +342,14 @@ class GeneralTests {
     @Test
     fun testReplaceSequencePartIsIllegal() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         println("instance.chain.getPersistedTransactions().asSequence().toList().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList().toList()}")
 
@@ -351,56 +370,62 @@ class GeneralTests {
             }
         })}
 
-        var instance = chainCreator()
+        val tx0 = Transaction(byteArrayOf(1, 2, 3, 4, 5))
+        val tx1 = Transaction(byteArrayOf(2, 2, 3, 4, 5))
+        val tx2 = Transaction(byteArrayOf(3, 2, 3, 4, 5))
+        val willBeTx1 = Transaction(byteArrayOf(123, 2, 3, 4, 5))
 
-        val tx0 = Transaction(byteArrayOf(1,2,3,4,5))
-        val tx1 = Transaction(byteArrayOf(2,2,3,4,5))
-        val tx2 = Transaction(byteArrayOf(3,2,3,4,5))
-        val willBeTx1 = Transaction(byteArrayOf(123,2,3,4,5))
-        instance.commitToMemPool(tx0)
+        run {
+            val instance = chainCreator()
+            instance.consensus as ManualConsensusAlgorithm
 
-        //tx0 becomes (1,2,3,4) - tx1 becomes (123,2,3,4,5)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
+            instance.commitToMemPool(tx0)
 
-        //tx1 becomes (123,2,3,4) - tx2 becomes (123,2,3,4,5) [[[WHICH IS WHAT TX1 WAS - but no longer is, by the end of this ]]]
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
+            //tx0 becomes (1,2,3,4) - tx1 becomes (123,2,3,4,5)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound()
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
-        instance.consensus.performConsensusRound(true)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
+            //tx1 becomes (123,2,3,4) - tx2 becomes (123,2,3,4,5) [[[WHICH IS WHAT TX1 WAS - but no longer is, by the end of this ]]]
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
+
+            instance.consensus.performConsensusRound(false)
+            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            instance.consensus.performConsensusRound(true)
+            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
 //        assertEquals(123, instance.chain.getPersistedTransactions().asSequence().toList()[1].content[0])
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size)
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[1].content.size)
 //        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size < instance.chain.getPersistedTransactions().asSequence().toList()[2].content.size)
-
+        }
 
 
         //assert that the result is the same if we squash in between - i.e. the incremental behaviour of the squash algorithm is given
-        instance = chainCreator()
+        run {
+            val instance = chainCreator()
+            instance.consensus as ManualConsensusAlgorithm
 
 
-        instance.commitToMemPool(tx0)
+            instance.commitToMemPool(tx0)
 
-        //tx0 becomes (1,2,3,4) - tx1 becomes (123,2,3,4,5)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
+            //tx0 becomes (1,2,3,4) - tx1 becomes (123,2,3,4,5)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound(true)
-        //tx1 becomes (123,2,3,4) - tx2 becomes (123,2,3,4,5)
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(willBeTx1.hash, DependencyType.BUILDS_UPON), Dependency(willBeTx1.hash, DependencyType.REPLACES_PARTIAL)))
+            instance.consensus.performConsensusRound(true)
+            //tx1 becomes (123,2,3,4) - tx2 becomes (123,2,3,4,5)
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(willBeTx1.hash, DependencyType.BUILDS_UPON), Dependency(willBeTx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound()
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
-        println("persisted prior to squash (hashes) : "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
-        println("persisted prior to squash : "+instance.chain.getPersistedTransactions().asSequence().toList())
-        instance.consensus.performConsensusRound(true)
-        println("persisted AFTER to squash (hashes) : "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
-        println("persisted AFTER to squash : "+instance.chain.getPersistedTransactions().asSequence().toList())
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
+            instance.consensus.performConsensusRound(false)
+            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            println("persisted prior to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
+            println("persisted prior to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
+            instance.consensus.performConsensusRound(true)
+            println("persisted AFTER to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
+            println("persisted AFTER to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
+            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
 //        assertEquals(123, instance.chain.getPersistedTransactions().asSequence().toList()[1].content[0])
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size)
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[1].content.size)
 //        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size < instance.chain.getPersistedTransactions().asSequence().toList()[2].content.size)
+        }
     }
 
     @Test
@@ -410,6 +435,7 @@ class GeneralTests {
                 return {_, _ -> byteArrayOf(1,2,3)}
             }
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         val tx0 = Transaction(byteArrayOf(1,2,3,5))
         val tx1 = Transaction(byteArrayOf(1,2,3,6))
@@ -420,7 +446,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() }}")
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() }}")
         instance.consensus.performConsensusRound(true)
 
@@ -429,52 +455,58 @@ class GeneralTests {
 
     @Test
     fun testIntermediateEqualHashCausesFail() {
-        var instance = Mockchain(EmptyApplication())
+        val tx0 = Transaction(byteArrayOf(1, 2, 3, 4, 5))
+        val tx1 = Transaction(byteArrayOf(1, 2, 3, 4, 6))
+        val tx2 = Transaction(byteArrayOf(1, 2, 3, 4, 7))
+        run {
+            val instance = Mockchain(EmptyApplication())
+            instance.consensus as ManualConsensusAlgorithm
 
-        val tx0 = Transaction(byteArrayOf(1,2,3,4,5))
-        val tx1 = Transaction(byteArrayOf(1,2,3,4,6))
-        val tx2 = Transaction(byteArrayOf(1,2,3,4,7))
-        instance.commitToMemPool(tx0)
+            instance.commitToMemPool(tx0)
 
-        //tx0 becomes (1,2,3,4) - tx1 becomes (1,2,3,4,6)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
+            //tx0 becomes (1,2,3,4) - tx1 becomes (1,2,3,4,6)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
 
-        //tx1 becomes (1,2,3,4) WHICH IS WHAT TX0 IS - should fail
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
+            //tx1 becomes (1,2,3,4) WHICH IS WHAT TX0 IS - should fail
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound()
+            instance.consensus.performConsensusRound(false)
 //        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
-        instance.consensus.performConsensusRound(true)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            instance.consensus.performConsensusRound(true)
+            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        }
 
+        run {
+            val instance = Mockchain(EmptyApplication())
+            instance.consensus as ManualConsensusAlgorithm
 
-        instance = Mockchain(EmptyApplication())
+            instance.commitToMemPool(tx0)
 
-        instance.commitToMemPool(tx0)
+            //tx0 becomes (1,2,3,4) - tx1 becomes (1,2,3,4,6)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
 
-        //tx0 becomes (1,2,3,4) - tx1 becomes (1,2,3,4,6)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
+            instance.consensus.performConsensusRound(true)
+            //tx1 becomes (1,2,3,4) WHICH IS WHAT TX0 IS - should fail
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-        instance.consensus.performConsensusRound(true)
-        //tx1 becomes (1,2,3,4) WHICH IS WHAT TX0 IS - should fail
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
-
-        instance.consensus.performConsensusRound()
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
-        instance.consensus.performConsensusRound(true)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            instance.consensus.performConsensusRound(false)
+            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            instance.consensus.performConsensusRound(true)
+            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        }
     }
 
     @Test
     fun testHighlyFringeCaseInWhichPartialRejectionCausesValidationToBeDifferentFromSquash() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(tx1)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES), Dependency(tx4.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx0.hash, DependencyType.REPLACES))) //valid, because tx2 should be rejected, because it's dependency tx4 does not exist
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -486,6 +518,7 @@ class GeneralTests {
     @Test
     fun testReplacingBuildUponDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -506,6 +539,7 @@ class GeneralTests {
                 new
             }
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         val tx0 = Transaction(byteArrayOf(1,1,3,4,5))
         val tx1 = Transaction(byteArrayOf(2,2,3,4,5))
@@ -514,7 +548,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))//because app does complete replace
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))//because app does complete replace
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -527,13 +561,14 @@ class GeneralTests {
     @Test
     fun testReplaceBeforeSequenceWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -542,14 +577,15 @@ class GeneralTests {
     @Test
     fun testBuildUponSequencePartWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON)))
-        instance.consensus.performConsensusRound()//otherwise order is undefined and tx3 might be evaluated before tx2
+        instance.consensus.performConsensusRound(false)//otherwise order is undefined and tx3 might be evaluated before tx2
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -558,6 +594,7 @@ class GeneralTests {
     @Test
     fun testSequencePartDependencyAlteredWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx4)
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx4.hash, DependencyType.SEQUENCE_END)))
@@ -567,7 +604,7 @@ class GeneralTests {
 
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash }}")
         println("instance.chain.getPersistedTransactions().asSequence().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList()}")
@@ -580,6 +617,7 @@ class GeneralTests {
     @Test
     fun testBuildUponSequenceEndWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -587,7 +625,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON)))
 
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -596,6 +634,7 @@ class GeneralTests {
     @Test
     fun testSequenceOfSequencesWorks() {
         val instance = Mockchain(EmptyApplication())
+        instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -604,7 +643,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.SEQUENCE_END)))
 
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
         assertEquals(5, instance.chain.getPersistedTransactions().asSequence().toList().size)
         instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
@@ -637,6 +676,7 @@ class GeneralTests {
     fun unfoundDependencyRelationOnPartialDelayedSquash_noLongerFails() {
         val app = EmptyApplication()
         val instance = Mockchain(app)
+        instance.consensus as ManualConsensusAlgorithm
 
         //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
         //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
@@ -655,60 +695,66 @@ class GeneralTests {
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)), denied[0].first)
 
         val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions().toTypedArray())
-        assertTrue(state.deniedTransactions.isNotEmpty())
+        assertTrue(state.rejections.isNotEmpty())
 
     }
 
 
     @Test
     fun unfoundDependencyRelationOnPartialDelayedSquashWithSequences_noLongerFails() {
-        val app = EmptyApplication()
-        var instance = Mockchain(app)
+        run {
+            val app = EmptyApplication()
+            val instance = Mockchain(app)
+            instance.consensus as ManualConsensusAlgorithm
 
-        instance.commitToMemPool(tx0)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
-        instance.consensus.performConsensusRound(true) //no squash occurs
+            instance.commitToMemPool(tx0)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
+            instance.consensus.performConsensusRound(true) //no squash occurs
 
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
-        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions().toTypedArray())
-
-
-        assertEquals(1, denied.size)
-        assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
-
-        val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions().toTypedArray())
-        assertTrue(state.deniedTransactions.isNotEmpty())
+            val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions().toTypedArray())
 
 
+            assertEquals(1, denied.size)
+            assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
+
+            val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions().toTypedArray())
+            assertTrue(state.rejections.isNotEmpty())
+        }
 
 
-        instance = Mockchain(EmptyApplication())
-
-        //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
-        //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
 
 
-        (instance.consensus as ManualConsensusAlgorithm).squashEveryNRounds = 1
+        run {
+            val instance = Mockchain(EmptyApplication())
+            instance.consensus as ManualConsensusAlgorithm
 
-        instance.commitToMemPool(tx0)
-        instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
-        instance.consensus.performConsensusRound(true)
+            //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
+            //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
 
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
 
-        instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
+            instance.consensus.squashEveryNRounds = 1
 
-        instance.consensus.performConsensusRound(true)
+            instance.commitToMemPool(tx0)
+            instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
+            instance.consensus.performConsensusRound(true)
 
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size) //still correct, but now tx1(A PERSISTED TX) has a missing dependency
+            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
 
-        println(instance.chain.getPersistedTransactions().asSequence().toList().toList())
-        instance.chain.getPersistedTransactions().asSequence().toList().forEach { persistedTransaction ->
-            persistedTransaction.bDependencies.forEach { dep ->
-                if(!instance.chain.contains(dep.txp))
-                    println("tx($persistedTransaction)'s dependency(${dep.txp}) could not be found in the chain")
-                assertTrue(instance.chain.contains(dep.txp))
+            instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
+
+            instance.consensus.performConsensusRound(true)
+
+            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size) //still correct, but now tx1(A PERSISTED TX) has a missing dependency
+
+            println(instance.chain.getPersistedTransactions().asSequence().toList().toList())
+            instance.chain.getPersistedTransactions().asSequence().toList().forEach { persistedTransaction ->
+                persistedTransaction.bDependencies.forEach { dep ->
+                    if (!instance.chain.contains(dep.txp))
+                        println("tx($persistedTransaction)'s dependency(${dep.txp}) could not be found in the chain")
+                    assertTrue(instance.chain.contains(dep.txp))
+                }
             }
         }
     }
@@ -723,6 +769,7 @@ class GeneralTests {
                     return { _, _ -> byteArrayOf(1, 2, 3) }
                 }
             })
+            instance.consensus as ManualConsensusAlgorithm
 
             val tx0 = Transaction(byteArrayOf(1, 2, 3))
             val tx1 = Transaction(byteArrayOf(1, 2, 3, 6))
@@ -754,6 +801,7 @@ class GeneralTests {
                     return { _, _ -> byteArrayOf(1, 2, 3) }
                 }
             })
+            instance.consensus as ManualConsensusAlgorithm
 
             val tx0 = Transaction(byteArrayOf(1, 2, 3))
             val tx1 = Transaction(byteArrayOf(1, 2, 3, 6))
@@ -794,6 +842,7 @@ class GeneralTests {
                 return { _, _ -> byteArrayOf(1, 2, 3, 4) }
             }
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         val tx0 = Transaction(byteArrayOf(1, 2, 3, 4))
         val tx1 = Transaction(byteArrayOf(1, 2, 3),
@@ -805,7 +854,7 @@ class GeneralTests {
 
         println("mem: "+instance.memPool.getTransactionHashes())
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList().toList()[0].content)
@@ -824,6 +873,7 @@ class GeneralTests {
                 return { _, _ -> byteArrayOf(1, 2, 3, 4) }
             }
         }, store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/flipHashIsDenied_Persistent_testDir"), true))
+        instance.consensus as ManualConsensusAlgorithm
 
         val tx0 = Transaction(byteArrayOf(1, 2, 3, 4))
         val tx1 = Transaction(byteArrayOf(1, 2, 3),
@@ -835,7 +885,7 @@ class GeneralTests {
 
         println("mem: "+instance.memPool.getTransactionHashes())
 
-        instance.consensus.performConsensusRound()
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList()[0].content)
@@ -853,6 +903,7 @@ class GeneralTests {
 //                    return { _, _ -> byteArrayOf(1, 2) }
 //                }
             })
+            instance.consensus as ManualConsensusAlgorithm
 
             val tx0 = Transaction(byteArrayOf(1, 2, 3))
             val tx1 = Transaction(byteArrayOf(1, 2, 3, 4))
@@ -860,7 +911,7 @@ class GeneralTests {
 
             instance.commitToMemPool(tx0)
             instance.commitToMemPool(tx1)
-            instance.consensus.performConsensusRound()
+            instance.consensus.performConsensusRound(false)
 
             //problem can (or did once) occur when replace-partial free'd a hash that is calculated by(the results of) a previous partial-replace
             //here: tx1(1,2,3,4) -> (1, 2, 3) and tx0(1,2,3) -> (1,2) (by partial)

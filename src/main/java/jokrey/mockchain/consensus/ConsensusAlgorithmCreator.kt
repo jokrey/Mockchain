@@ -1,14 +1,12 @@
 package jokrey.mockchain.consensus
 
-import jokrey.mockchain.application.Application
-import jokrey.mockchain.storage_classes.Chain
-import jokrey.mockchain.storage_classes.MemPool
+import jokrey.mockchain.Mockchain
 
 /**
- * Workaround to allow users to infuse their own consensus without themselves creating chain and mempool
+ * Workaround to allow users to infuse their own consensus without themselves creating chain, mempool, etc. (i.e. their own instance).
  * @author jokrey
  */
 @FunctionalInterface
 interface ConsensusAlgorithmCreator {
-    fun create(app: Application, chain: Chain, memPool: MemPool) : ConsensusAlgorithm
+    fun create(instance: Mockchain) : ConsensusAlgorithm
 }

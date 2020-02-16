@@ -1,10 +1,10 @@
 package jokrey.mockchain
 
 import jokrey.mockchain.application.Application
-import jokrey.mockchain.consensus.ConsensusAlgorithm
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
 import jokrey.mockchain.storage_classes.*
+import java.lang.System.err
 
 /**
  * Blockchain implementation with no network. I.e. a mockchain.
@@ -16,20 +16,15 @@ import jokrey.mockchain.storage_classes.*
  * However the consensus algorithm already includes the squash feature that allows applications to selectively minimize their data usage after the fact.
  */
 
-class Mockchain {
-    private val app: Application
-    val consensus: ConsensusAlgorithm
-    val memPool = MemPool()
-    val chain: Chain
-    constructor(app: Application, consensusAlgorithm: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) {
-        this.app = app
-        this.chain = Chain(app)
-        this.consensus = consensusAlgorithm.create(app, chain, memPool)
-    }
-    constructor(app: Application, store: StorageModel, consensusAlgorithm: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) {
-        this.app = app
-        this.chain = Chain(app, store)
-        this.consensus = consensusAlgorithm.create(app, chain, memPool)
+open class Mockchain(internal val app: Application,
+                     store: StorageModel = NonPersistentStorage(),
+                     consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) {
+    internal val memPool = MemPool()
+    internal val chain: Chain = Chain(app, this, store)
+    internal val consensus = consensus.create(this)
+
+    init {
+        this.consensus.runConsensusLoopInNewThread()
     }
 
     /**
@@ -38,28 +33,30 @@ class Mockchain {
      *
      * The given transaction has to have an unset blockId, i.e. one that is smaller than 0. Otherwise the chain could not override that field.
      */
-    fun commitToMemPool(tx: Transaction) {
+    open fun commitToMemPool(tx: Transaction, local: Boolean = true) {
         if(tx.hash in chain || tx.hash in memPool) {
             // - this 'fix' does not work in a distributed environment, it does! txs are guaranteed to be equal, memPool should also be synchronized
-            app.txRejected(chain, tx.hash, tx, RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field"))
+            app.txRejected(this, tx.hash, tx, RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field"))
             throw IllegalArgumentException("hash already known to chain this is illegal for now, due to the hash uniqueness problem - tx: $tx")
         }
         if(tx.blockId >= 0)
             throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty")
-        LOG.info("tx committed to mem pool = $tx")
+        log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
         memPool[tx.hash] = tx
 
-//        node?.broadcastTx(tx)
+        consensus.notifyNewTransactionInMemPool(tx)
     }
-
-//    fun performConsensus()
 
 
 
     /**
-     * Returns true if the hash is known to the chain, false if it is not resolvable
+     * Returns true if the hash is known to this Mockchain node(i.e. in mempool or chain), false if it is not resolvable
      */
     operator fun contains(aHash: TransactionHash) = memPool.contains(aHash) || chain.isPersisted(aHash)
+
+    operator fun get(txp: TransactionHash): Transaction {
+        return memPool.getUnsure(txp)?: chain[txp]
+    }
 
     /**
      * Adds the current size of the permanent storage and the Mempool to roughly calculate the current size of the chain
@@ -67,6 +64,17 @@ class Mockchain {
     fun calculateStorageRequirementsInBytes() : Long {
         return chain.calculateStorageRequirementsInBytes() +
                 memPool.byteSize()
+    }
+
+    internal open fun notifyNewLocalBlockAdded(block: Block) {
+        for (txp in block)
+            memPool.remove(txp)
+
+        log("new block added = $block")
+    }
+
+    internal open fun log(s: String) {
+        err.println(s)
     }
 }
 

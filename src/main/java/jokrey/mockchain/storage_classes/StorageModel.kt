@@ -6,6 +6,11 @@ import org.iq80.leveldb.Options
 import org.iq80.leveldb.WriteBatch
 import org.iq80.leveldb.impl.Iq80DBFactory
 import java.io.File
+import java.util.*
+import kotlin.NoSuchElementException
+import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
+import kotlin.collections.LinkedHashMap
 
 /**
  * All mutating operations are cached or just done uncommitted, to be executed to the readable state on 'commit'.
@@ -40,6 +45,9 @@ interface StorageModel {
 
     //for all
     fun commit()
+
+    fun addCommittedChangeListener(changeOccurredCallback: () -> Unit)
+    fun fireChangeCommitted()
 }
 
 interface BlockChainStorageIterator: Iterator<Block> {
@@ -115,6 +123,16 @@ class NonPersistentStorage : StorageModel {
         committedTXS.putAll(uncommittedTXS)
         committedBLOCKS.clear()
         committedBLOCKS.addAll(uncommittedBLOCKS)
+
+        fireChangeCommitted()
+    }
+
+    private val changeOccurredCallbacks = LinkedList<() -> Unit>()
+    override fun addCommittedChangeListener(changeOccurredCallback: () -> Unit) {
+        changeOccurredCallbacks.add(changeOccurredCallback)
+    }
+    override fun fireChangeCommitted() {
+        for(c in changeOccurredCallbacks) c()
     }
 }
 
@@ -251,12 +269,22 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     override fun commit() {
         levelDBStore.write(currentBatch)
         currentBatch = levelDBStore.createWriteBatch()
+
+        fireChangeCommitted()
+    }
+
+    private val changeOccurredCallbacks = LinkedList<() -> Unit>()
+    override fun addCommittedChangeListener(changeOccurredCallback: () -> Unit) {
+        changeOccurredCallbacks.add(changeOccurredCallback)
+    }
+    override fun fireChangeCommitted() {
+        for(c in changeOccurredCallbacks) c()
     }
 
 
 
 
-    val transformer = LITypeToBytesTransformer()
+    private val transformer = LITypeToBytesTransformer()
     operator fun Byte.plus(other: ByteArray): ByteArray {
         val arraySize = other.size
         val result = ByteArray(1 + arraySize)

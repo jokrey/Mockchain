@@ -26,7 +26,7 @@ open class Block: Iterable<TransactionHash> {
     /**
      * Internal use only.
      */
-    private constructor(previousBlockHash: Hash?, proof: Proof, txs: Array<TransactionHash>, merkleRoot: Hash) {
+    internal constructor(previousBlockHash: Hash?, proof: Proof, merkleRoot: Hash, txs: Array<TransactionHash>) {
         this.previousBlockHash = previousBlockHash
         this.txs = txs
         this.proof = proof
@@ -48,6 +48,7 @@ open class Block: Iterable<TransactionHash> {
         else
             emptyArray()
     }
+
     /**
      * Encodes the current blocks contents to be persisted by the storage model.
      * The encoding can be reveres using the appropiate constructor.
@@ -77,7 +78,7 @@ open class Block: Iterable<TransactionHash> {
      * Generates and returns the block hash, i.e. the hash of the header of this block.
      * This hash should be used as the previousBlockHash when creating the next block.
      */
-    open fun getHeaderHash() = if(previousBlockHash==null) merkleRoot else Hash(previousBlockHash, merkleRoot) //question: cache this value??
+    open fun getHeaderHash() = if(previousBlockHash==null) merkleRoot else Hash(previousBlockHash, merkleRoot, proof) //question: cache this value??
 
 
     private val txs:Array<TransactionHash>
@@ -104,9 +105,6 @@ open class Block: Iterable<TransactionHash> {
 
 
     //Immutability retaining change functionality
-    /**
-     *
-     */
     fun rebuildWithMutated(previousBlockHash: Hash?, oldHash: TransactionHash, newHash: TransactionHash) : Block {
         val cloned = txs.clone()
         val i = cloned.indexOf(oldHash)
@@ -118,11 +116,12 @@ open class Block: Iterable<TransactionHash> {
         val cloned = txs.toList().filter { !deletions.contains(it) }.toTypedArray()
         for((before, after) in changes)
             cloned[cloned.indexOf(before)] = after
-        //todo - proof might need to be changed - BUT TO WHAT THO?? - maybe just a flag?
+        //todo - proof has to be changed - BUT TO WHAT THO?? - maybe just a flag?
+        //todo - without a change it becomes instantly impossible to validate the proof after a squash - though is that even necessary? (on catch up - potentially)
         return Block(previousBlockHash, proof, cloned)
     }
     fun changePreviousHash(newPreviousHash: Hash?): Block {
-        return Block(newPreviousHash, proof, txs, merkleRoot) // does without cloning txs or recalculating merkle root - as fast as can be
+        return Block(newPreviousHash, proof, merkleRoot, txs) // does without cloning txs or recalculating merkle root - as fast as can be
     }
 
 
@@ -131,7 +130,7 @@ open class Block: Iterable<TransactionHash> {
      * Builds a Merkle Tree from the transactions in this block
      */
     fun buildMerkleTree() = MerkleTree(*txs)
-    fun rebuildMerkleRoot() = if(txs.isEmpty()) Hash(byteArrayOf(1)) else buildMerkleTree().getRoot()
+    fun rebuildMerkleRoot() = buildMerkleTree().getRoot()
     /**
      * Validates that the given 'previous' block is the previous block of this block, by comparing previousBlockHash with the header hash of the given block
      */

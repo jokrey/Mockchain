@@ -72,7 +72,7 @@ class SquashRejectedException(why: String = "Squash has been rejected for a reas
 fun findChangesAndDeniedTransactions(chain: Chain, partialReplaceCallback: PartialReplaceSquashHandler, buildUponCallback: BuildUponSquashHandler, sequenceCallback: SequenceSquashHandler,
                                      subset: Array<Transaction>) : Pair<LinkedHashMap<TransactionHash, VirtualChange>, List<Pair<Transaction, RejectionReason.SQUASH_VERIFY>>> {
     val state = findChanges(chain, partialReplaceCallback, buildUponCallback, sequenceCallback, null, subset)
-    return Pair(state.virtualChanges, state.deniedTransactions)
+    return Pair(state.virtualChanges, state.rejections)
 }
 
 /**
@@ -474,7 +474,7 @@ class SquashAlgorithmState {
     val virtualChanges = LinkedHashMap<TransactionHash, VirtualChange>()
     val sequences = HashSet<TransactionHash>()
     val reservedHashes = HashMap<TransactionHash, TransactionHash>() //map from reserved hash to it's "reserver"
-    val deniedTransactions = ArrayList<Pair<Transaction, RejectionReason.SQUASH_VERIFY>>()
+    val rejections = ArrayList<Pair<Transaction, RejectionReason.SQUASH_VERIFY>>()
 
     fun reset() {
         virtualChanges.forEach {
@@ -483,13 +483,13 @@ class SquashAlgorithmState {
         }
         virtualChanges.clear()
         reservedHashes.clear()
-        deniedTransactions.clear()
+        rejections.clear()
     }
 
 
 
     fun deny(tx: Transaction, ex: Exception) {
-        deniedTransactions.add(Pair(tx, RejectionReason.SQUASH_VERIFY(ex.message?:"no reason given")))
+        rejections.add(Pair(tx, RejectionReason.SQUASH_VERIFY(ex.message?:"no reason given")))
         virtualChanges[tx.hash] = VirtualChange.Error //to create a recursive exception - if the illegal tx is required by a further tx in the loop
 
         LOG.warning("ex on (${tx.hash}): $ex")

@@ -39,7 +39,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
     private val wpeListeners = ArrayList<WPEListener>()
     private val routeListeners = ArrayList<Pair<String, (SupplyRoute, Transaction) -> Unit>>()
 
-    override fun verify(chain: Chain, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         //does NOT do virtual changes yet, so only one tx in any sequence will ever be accepted - this is a todo
@@ -62,7 +62,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
         return denied
     }
 
-    override fun newBlock(chain: Chain, block: Block) {
+    override fun newBlock(instance: Mockchain, block: Block) {
         SupplyChainTxHandler(
                 { swpe, tx ->
                     val wpe = swpe.wpe
@@ -72,11 +72,11 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
                 { sr, tx ->
                     tracks[sr.name] = sr
                     routeListeners.filter { it.first == sr.name }.forEach { it.second(sr, tx) }
-                }).handleAll(block.map { chain[it] })
+                }).handleAll(block.map { instance[it] })
     }
 
-    override fun txRemoved(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
-    override fun txAltered(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
+    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
+    override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         SupplyChainTxHandler(
                 { swpe, tx ->
                     val wpe = swpe.wpe
@@ -88,7 +88,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
                 .handle(newTx)
 
     }
-    override fun txRejected(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
+    override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
         //todo handle - i.e. inform routes to roll back
         LOG.finest("SupplyChain.txRejected")
         LOG.finest("oldHash = [${oldHash}], oldTx = [${oldTx}], reason = [${reason}]")

@@ -102,7 +102,8 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
     val appDisplay: ApplicationDisplay = app
 
     val instance = Mockchain(app)
-    (instance.consensus as ManualConsensusAlgorithm).squashEveryNRounds = squashEveryNRounds
+    val consensus = if(instance.consensus is ManualConsensusAlgorithm) instance.consensus else null
+    consensus?.squashEveryNRounds = squashEveryNRounds
     val engine = TxVisualizationEngine(instance, txGen, appDisplay, consensusEveryNTicks)
     var ap: AnimationJPanel? = null
     val pipe = object: AnimationPipeline(AnimationDrawerSwing()) {
@@ -111,6 +112,18 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
 
             drawer.drawString(AEColor.WHITE, appDisplay.shortStateDescriptor(), AERect(0.0,ap!!.height.toDouble()-75.0, ap!!.width.toDouble(), 75.0))
         }
+    }
+
+    instance.chain.store.addCommittedChangeListener {
+        engine.recalculateTransactionDisplay()
+        if(pipe.userDrawBoundsMidOverride==null)
+            pipe.resetDrawBounds(engine)
+    }
+    instance.memPool.addChangeListener {
+        //todo - only update mem pool display
+        engine.recalculateTransactionDisplay()
+        if(pipe.userDrawBoundsMidOverride==null)
+            pipe.resetDrawBounds(engine)
     }
 
     val frame = JFrame(app::class.java.simpleName)
@@ -139,63 +152,65 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
     val applicationChooser = JButton("switch App")
 
     //ui functionality
-    squashJB.addActionListener {
-        instance.consensus.performConsensusRound(false) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
+    if(consensus!=null) {
+        squashJB.addActionListener {
+            consensus.performConsensusRound(false) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
 
-        val priorStorageRequirements = instance.calculateStorageRequirementsInBytes()
+            val priorStorageRequirements = instance.calculateStorageRequirementsInBytes()
 
-        val stateBeforeString = appDisplay.exhaustiveStateDescriptor()
-        println("         state before: $stateBeforeString")
+            val stateBeforeString = appDisplay.exhaustiveStateDescriptor()
+            println("         state before: $stateBeforeString")
 
-        val freshCompareAppBefore = app.getEqualFreshCreator()()
-        instance.chain.applyReplayTo(freshCompareAppBefore)
-        val replayedStateBeforeString = freshCompareAppBefore.exhaustiveStateDescriptor()
-        println("replayed state before: $replayedStateBeforeString")
+            val freshCompareAppBefore = app.getEqualFreshCreator()()
+            instance.chain.applyReplayTo(freshCompareAppBefore)
+            val replayedStateBeforeString = freshCompareAppBefore.exhaustiveStateDescriptor()
+            println("replayed state before: $replayedStateBeforeString")
 
-        instance.consensus.performConsensusRound(true)
+            consensus.performConsensusRound(true)
 
-        engine.recalculateTransactionDisplay()
-        pipe.resetDrawBounds(engine)
-
-        val stateAfterString = appDisplay.exhaustiveStateDescriptor()
-        println("         state after:  $stateAfterString")
-
-        val freshCompareAppAfter = app.getEqualFreshCreator()()
-        instance.chain.applyReplayTo(freshCompareAppAfter)
-
-        val replayedStateAfterString = freshCompareAppAfter.exhaustiveStateDescriptor()
-        println("replayed state after:  $replayedStateAfterString")
-
-        val afterStorageRequirements = instance.calculateStorageRequirementsInBytes()
-
-
-        val allStateStringsEqual = arrayOf(stateBeforeString, replayedStateBeforeString, stateAfterString, replayedStateAfterString).allEqual()
-
-        val chainHashesValid = instance.chain.validateHashChain()
-
-        println("all state strings equal:  $allStateStringsEqual")
-        println("chain hashes valid:  $chainHashesValid")
-        println("storage-size(in bytes): $priorStorageRequirements -> $afterStorageRequirements   (difference:${priorStorageRequirements - afterStorageRequirements}")
-        if(!allStateStringsEqual)
-            throw SadException("STATES DO NOT EQUAL :(")
-        if(!chainHashesValid)
-            throw SadException("SQUASH RESULTED IN INCONSISTENT HASH STATE")
-        if(afterStorageRequirements > priorStorageRequirements)
-            throw SadException("SQUASH INCREASED DATA SIZE :(")
-    }
-    performConsensusJB.addActionListener {
-        instance.consensus.performConsensusRound(false)
-
-        engine.recalculateTransactionDisplay()
-        if(pipe.userDrawBoundsMidOverride==null)
+            engine.recalculateTransactionDisplay()
             pipe.resetDrawBounds(engine)
+
+            val stateAfterString = appDisplay.exhaustiveStateDescriptor()
+            println("         state after:  $stateAfterString")
+
+            val freshCompareAppAfter = app.getEqualFreshCreator()()
+            instance.chain.applyReplayTo(freshCompareAppAfter)
+
+            val replayedStateAfterString = freshCompareAppAfter.exhaustiveStateDescriptor()
+            println("replayed state after:  $replayedStateAfterString")
+
+            val afterStorageRequirements = instance.calculateStorageRequirementsInBytes()
+
+
+            val allStateStringsEqual = arrayOf(stateBeforeString, replayedStateBeforeString, stateAfterString, replayedStateAfterString).allEqual()
+
+            val chainHashesValid = instance.chain.validateHashChain()
+
+            println("all state strings equal:  $allStateStringsEqual")
+            println("chain hashes valid:  $chainHashesValid")
+            println("storage-size(in bytes): $priorStorageRequirements -> $afterStorageRequirements   (difference:${priorStorageRequirements - afterStorageRequirements}")
+            if (!allStateStringsEqual)
+                throw SadException("STATES DO NOT EQUAL :(")
+            if (!chainHashesValid)
+                throw SadException("SQUASH RESULTED IN INCONSISTENT HASH STATE")
+            if (afterStorageRequirements > priorStorageRequirements)
+                throw SadException("SQUASH INCREASED DATA SIZE :(")
+        }
+        performConsensusJB.addActionListener {
+            consensus.performConsensusRound(false)
+
+//            engine.recalculateTransactionDisplay()
+//            if (pipe.userDrawBoundsMidOverride == null)
+//                pipe.resetDrawBounds(engine)
+        }
     }
     tickJB.addActionListener {
         engine.calculateTick()
 
-        engine.recalculateTransactionDisplay()
-        if(pipe.userDrawBoundsMidOverride==null)
-            pipe.resetDrawBounds(engine)
+//        engine.recalculateTransactionDisplay()
+//        if(pipe.userDrawBoundsMidOverride==null)
+//            pipe.resetDrawBounds(engine)
     }
     epochNumberInputField.setDocument(IntegersOnlyDocument())
     epochNumberInputField.setText("50")
@@ -203,9 +218,9 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
         for(i in 0 until epochNumberInputField.getText().toInt())
             engine.calculateTick()
 
-        engine.recalculateTransactionDisplay()
-        if(pipe.userDrawBoundsMidOverride==null)
-            pipe.resetDrawBounds(engine)
+//        engine.recalculateTransactionDisplay()
+//        if(pipe.userDrawBoundsMidOverride==null)
+//            pipe.resetDrawBounds(engine)
     }
 
     consensusEveryNTicksInputField.setDocument(IntegersOnlyDocument())
@@ -228,7 +243,7 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
         override fun removeUpdate(e: DocumentEvent?) = change()
         fun change() {
             if(squashEveryNConsensusRoundsInputField.getText().isNotEmpty())
-                instance.consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
+                consensus?.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
         }
     })
 
@@ -245,14 +260,14 @@ fun startVisualizationWith(app: VisualizableApp, squashEveryNRounds:Int = -1, co
             JOptionPane.showMessageDialog(frame, "Error - could not generate transaction\n${e.message}")
         }
 
-        engine.recalculateTransactionDisplay()
-        if(pipe.userDrawBoundsMidOverride==null)
-            pipe.resetDrawBounds(engine)
+//        engine.recalculateTransactionDisplay()
+//        if(pipe.userDrawBoundsMidOverride==null)
+//            pipe.resetDrawBounds(engine)
     }
 
     applicationChooser.addActionListener {
         try {
-            startApplicationChooser(frame, app, instance.consensus.squashEveryNRounds, engine.consensusEveryNTick)
+            startApplicationChooser(frame, app, consensus?.squashEveryNRounds ?: -1, engine.consensusEveryNTick)
             frame.dispose()
         } catch(e: CancellationException) {
         } catch(e: Exception) {

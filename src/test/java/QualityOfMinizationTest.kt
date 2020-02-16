@@ -1,5 +1,6 @@
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.examples.sensornet.SensorNetAnalyzer
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import jokrey.mockchain.visualization.VisualizableApp
@@ -34,6 +35,7 @@ class QualityOfMinizationTest {
 
             val app = source.getEqualFreshCreator()()
             val instance = Mockchain(app)
+            instance.consensus as ManualConsensusAlgorithm
             while(instance.chain.getPersistedTransactions().asSequence().count() < numberOfTxToGenerate) {
                 val new = app.next(instance, txI.toLong(), random)
                 if (new.isPresent) {
@@ -45,9 +47,9 @@ class QualityOfMinizationTest {
                 }
                 txI++
                 if(txI % blockEvery == 0)
-                    instance.consensus.performConsensusRound()
+                    instance.consensus.performConsensusRound(false)
             }
-            instance.consensus.performConsensusRound()
+            instance.consensus.performConsensusRound(false)
 
             val before = instance.calculateStorageRequirementsInBytes()
             val beforeTxCount = instance.chain.getPersistedTransactions().asSequence().count()

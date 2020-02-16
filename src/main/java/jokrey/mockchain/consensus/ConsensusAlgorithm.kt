@@ -1,95 +1,128 @@
 package jokrey.mockchain.consensus
 
-import jokrey.mockchain.application.Application
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 
 /**
- * Will propose blocks to the chain based on some internal configuration from it's own thread.
+ * Will propose blocks to the chain. Either based on internal rules on its own, or upon an external command.
  *
  * Will interface with chain(for storage), mempool(for querying txs) and application(for tx verification)
  *
  * Will receive data from the network (remotely proposed blocks)
  *
- * todo mempool must also receive data from the network
+ * Can react to external changes such as new transactions being added to the mem pool.
+ *
+ * @author jokrey
  */
-abstract class ConsensusAlgorithm(private val app:Application,
-                                  private val chain: Chain,
-                                  private val memPool: MemPool) {
-
-    internal var consensusRoundCounter = 0
-    private var priorSquashState: SquashAlgorithmState? = null
+abstract class ConsensusAlgorithm(protected val instance: Mockchain) {
+    /**
+     * Will attempt to add as many of the selected transactions AS POSSIBLE.
+     * Those transactions that are rejected by either application verification and squash verification will be ignored.
+     * Once the remaining transactions are persisted to the chain they will be removed from the mem pool automatically.
+     */
+    protected fun attemptCreateAndAddLocalBlock(selectedTransactions: List<Transaction>,
+                                      proof: Proof,
+                                      latestHash: Hash? = instance.chain.getLatestHash(),
+                                      requestSquash: Boolean = false) {
+        val selected = selectedTransactions.toMutableList()
+        val newSquashState = removeAllRejectedTransactionsFrom(getLocalIdentity(), selected)
+        createAndAddLocalBlock(newSquashState, selected, latestHash, proof, requestSquash)
+    }
 
     /**
-     * Will commit the Mempool to the 'permanent' chain, under the verify and squash rules
+     * Will persist the given transactions to the chain. They have to be locally guaranteed to be valid and legal.
+     * The given squash state has to be valid for reintroduction as well, preferably it was created using removeAllRejectedTransactionsFrom.
+     * Once the transactions are persisted to the chain they will be removed from the mem pool automatically.
+     * @see removeAllRejectedTransactionsFrom
      */
-    open fun performConsensusRound(forceSquash: Boolean = false) {
-        consensusRoundCounter++
+    protected fun createAndAddLocalBlock(newSquashState: SquashAlgorithmState?,
+                               selectedVerifiedTransactions: List<Transaction>,
+                               latestHash: Hash?,
+                               proof: Proof,
+                               requestSquash: Boolean = false,
+                               merkleRoot: Hash = MerkleTree(*selectedVerifiedTransactions.map { it.hash }.toTypedArray()).getRoot()) {
+        val selectedVerifiedTransactionHashes = selectedVerifiedTransactions.map { it.hash }.toMutableList()
 
-        val proposedTransactions = memPool.getTransactions().toMutableList()
+        val newBlock = Block(latestHash, proof, merkleRoot, selectedVerifiedTransactionHashes.toTypedArray())
+        instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
 
-        for (tx in proposedTransactions)
-            memPool.remove(tx.hash)
+        instance.notifyNewLocalBlockAdded(newBlock)
+    }
 
-        //VERIFICATION
-        //Verified by popular vote within application(s) - actual distributed consensus omitted from this prototype
+    /**
+     * Will verify and if valid add the received remote block to the chain.
+     * If even a single transaction in the given block is determined to be invalid the entire block will be rejected and not added to the chain.
+     *
+     * TODO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
+     */
+    internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block): Boolean {
+        val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
+        val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedBlock.proof)
+
+        val proposedTransactions = receivedBlock.map { instance.memPool[it] }.toMutableList()
+        val newSquashState = removeAllRejectedTransactionsFrom(blockCreatorIdentity, proposedTransactions)
+
+        if(proposedTransactions.size != receivedBlock.size) //if even a single transaction in
+            return false
+
+        instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, proposedTransactions)
+
+        return true
+    }
+
+
+    internal abstract fun runConsensusLoopInNewThread()
+    internal abstract fun notifyNewLatestBlock(newBlock: Block)
+    internal abstract fun notifyNewTransactionInMemPool(newTx: Transaction)
+
+    internal abstract fun validateProof(receivedBlock: Block): Boolean
+
+    protected abstract fun extractRequestSquashFromProof(proof: Proof): Boolean
+    protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ImmutableByteArray
+    protected abstract fun getLocalIdentity(): ImmutableByteArray
+
+
+    //todo - i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
+    protected fun removeAllRejectedTransactionsFrom(blockCreatorIdentity: ImmutableByteArray, proposed: MutableList<Transaction>) : SquashAlgorithmState? {
         var newSquashState: SquashAlgorithmState? = null
-        var rejectedTxCount: Int
         do {
-            rejectedTxCount=0
-            //app verify needs to be before squash verify - otherwise if a tx is rejected here it no longer exists, but squash verify did not know that
+            var rejectedTxCount = 0
             AverageCallTimeMarker.mark_call_start("app verify")
-            val appRejectedTransactions = app.verify(chain, *proposedTransactions.toTypedArray())
-            proposedTransactions.removeAll(appRejectedTransactions.map { it.first })
+            val appRejectedTransactions = instance.app.verify(instance, blockCreatorIdentity, *proposed.toTypedArray())
+            handleRejection(proposed, appRejectedTransactions)
+            proposed.removeAll(appRejectedTransactions.map { it.first })
             rejectedTxCount += appRejectedTransactions.size
-            handleRejection(proposedTransactions, appRejectedTransactions)
             AverageCallTimeMarker.mark_call_end("app verify")
 
-            if(newSquashState!=null && (proposedTransactions.isEmpty() || rejectedTxCount == 0))
+            if(newSquashState!=null && (proposed.isEmpty() || rejectedTxCount == 0))
                 break // if app does not reject anything after a squash run, then squash is not required to be run again - because nothing changed
 
             AverageCallTimeMarker.mark_call_start("squash verify")
-            newSquashState = jokrey.mockchain.squash.findChanges(chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(),
-                    priorSquashState, proposedTransactions.toTypedArray())
-            handleRejection(proposedTransactions, newSquashState.deniedTransactions)
-            proposedTransactions.removeAll(newSquashState.deniedTransactions.map { it.first })
-            rejectedTxCount += newSquashState.deniedTransactions.size
+            newSquashState = instance.chain.squashVerify(proposed)
+            handleRejection(proposed, newSquashState.rejections)
+            proposed.removeAll(newSquashState.rejections.map { it.first })
+            rejectedTxCount += newSquashState.rejections.size
             AverageCallTimeMarker.mark_call_end("squash verify")
-        } while(proposedTransactions.isNotEmpty() && (rejectedTxCount > 0 || newSquashState!!.deniedTransactions.isNotEmpty()))
+        } while(proposed.isNotEmpty() && rejectedTxCount > 0)
 
-        newSquashState as SquashAlgorithmState
-
-        if (proposedTransactions.isEmpty()) {
-            LOG.info("all transactions have been rejected - not creating a new block")
-            assert(memPool.isEmpty())
-        }
-
-        chain.appendVerifiedNewBlock(forceSquash, newSquashState, proposedTransactions, Proof(ByteArray(0)))
-
-        priorSquashState = newSquashState
+        return newSquashState
     }
 
     private fun handleRejection(proposed: List<Transaction>, rejected: List<Pair<Transaction, RejectionReason>>) {
         for ((rejectedTransaction, reason) in rejected) {
             if(rejectedTransaction !in proposed) {
-                if(rejectedTransaction.hash !in chain)
+                if(rejectedTransaction.hash !in instance.chain)
                     throw IllegalStateException("$reason rejected unknown transaction(hash=${rejectedTransaction.hash})")
                 else
                     throw IllegalStateException("$reason rejected persisted transaction(hash=${rejectedTransaction.hash})")
             }
-            memPool.remove(rejectedTransaction.hash)
-            app.txRejected(chain, rejectedTransaction.hash, rejectedTransaction, reason)
-            LOG.info("$reason rejected: $rejectedTransaction")
+            instance.memPool.remove(rejectedTransaction.hash)
+            instance.app.txRejected(instance, rejectedTransaction.hash, rejectedTransaction, reason)
+            instance.log("$reason rejected: $rejectedTransaction")
         }
     }
-
-    abstract fun runConsensusLoop()
-
-    abstract fun remoteBlockReceived(block: Block)
-        //validate proof
-        //validate all tx - if one tx is invalid -> entire block is rejected (possibly some internal penalty to the proposing party - if the proof in the block contains that info)
-        // rebroadcast block
 
 
 
@@ -124,15 +157,4 @@ abstract class ConsensusAlgorithm(private val app:Application,
         - trivial
     FORK BLOCK RECEIVED NOT HANDLED YET....
      */
-}
-
-class ManualConsensusAlgorithm(app: Application, chain: Chain, memPool: MemPool, var squashEveryNRounds: Int = -1) : ConsensusAlgorithm(app, chain, memPool) {
-    override fun performConsensusRound(forceSquash: Boolean) {
-        super.performConsensusRound(forceSquash  || (squashEveryNRounds > 0 && consensusRoundCounter % squashEveryNRounds == 0))
-    }
-    override fun runConsensusLoop() {}
-    override fun remoteBlockReceived(block: Block) {}
-}
-class ManualConsensusAlgorithmCreator(private val squashEveryNRounds: Int = -1) : ConsensusAlgorithmCreator {
-    override fun create(app: Application, chain: Chain, memPool: MemPool) = ManualConsensusAlgorithm(app, chain, memPool, squashEveryNRounds)
 }

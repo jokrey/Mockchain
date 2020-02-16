@@ -1,4 +1,5 @@
 import jokrey.mockchain.Mockchain
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import org.junit.jupiter.api.Test
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
@@ -43,6 +44,7 @@ class HashStressTest {
 
             fun half(bs:ByteArray) = bs.copyOf(bs.size/2)
         })
+        instance.consensus as ManualConsensusAlgorithm
 
         var numberOfGeneratedTx = 0
         var numberOfGeneratedBlocks = 0

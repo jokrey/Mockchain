@@ -21,7 +21,7 @@ import kotlin.collections.HashMap
 class SensorNetAnalyzer: VisualizableApp {
     private val sensorData = HashMap<String, MutableList<SensorResult>>()
 
-    override fun verify(chain: Chain, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
         for(tx in txs) {
             val sr = srFromTx(tx)
@@ -37,12 +37,12 @@ class SensorNetAnalyzer: VisualizableApp {
 
     //cannot introduce change before build upon, is this the right way or should the average be pre calculated??
     //    this is kinda weird and precalculation might be even weirder
-    override fun txAltered(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
+    override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         if(srFromTx(oldTx).second.isAverage && srFromTx(newTx).second.isAverage)
             sensorData[srFromTx(oldTx).first]!!.add(srFromTx(newTx).second)
     }
-    override fun txRejected(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {}
-    override fun txRemoved(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
+    override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {}
+    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
         val removed = srFromTx(oldTx)
         for ((i, snActual) in sensorData[removed.first]!!.withIndex())
             if (snActual == removed.second) {
@@ -51,8 +51,8 @@ class SensorNetAnalyzer: VisualizableApp {
             }
     }
 
-    override fun newBlock(chain: Chain, block: Block) {
-        for (res in Array(block.size) { srFromTx(chain[block[it]]) }) {
+    override fun newBlock(instance: Mockchain, block: Block) {
+        for (res in Array(block.size) { srFromTx(instance[block[it]]) }) {
             if (java.lang.Double.isNaN(res.second.result)) {
                 if (!res.second.isAverage)
                     throw IllegalStateException("Should not happen, verification should have caught this")

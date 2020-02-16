@@ -1,5 +1,6 @@
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.examples.calculator.*
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
 import org.junit.jupiter.api.Test
 import jokrey.mockchain.storage_classes.Dependency
@@ -56,7 +57,8 @@ class CalculatorTest {
         for(variation in variations) {
             val (performConsensusEvery, squashEveryNRounds) = variation
             val app = SingleStringCalculator()
-            val instance = Mockchain(app, ManualConsensusAlgorithmCreator(squashEveryNRounds))
+            val instance = Mockchain(app, consensus = ManualConsensusAlgorithmCreator(squashEveryNRounds))
+            instance.consensus as ManualConsensusAlgorithm
 
 //            println("variation; consensusEvery: $performConsensusEvery, squashEvery: ${chain.squashEveryNRounds}")
 
@@ -71,9 +73,9 @@ class CalculatorTest {
                 instance.commitToMemPool(new)
 
                 if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mempool
-                    instance.consensus.performConsensusRound()
+                    instance.consensus.performConsensusRound(false)
             }
-            instance.consensus.performConsensusRound()
+            instance.consensus.performConsensusRound(false)
 
             if(definiteState==null)
                 definiteState = app.exhaustiveStateDescriptor()

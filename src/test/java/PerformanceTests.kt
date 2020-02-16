@@ -1,5 +1,6 @@
 import com.google.common.io.Files
 import jokrey.mockchain.Mockchain
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import jokrey.utilities.debug_analysis_helper.BoxPlotDataGatherer
 import jokrey.mockchain.squash.BuildUponSquashHandler
@@ -108,20 +109,21 @@ class PerformanceTests {
             //because of txAltered selectedPrevious is unpredictable among different blockEveryTx and squashEveryBlock parameters
             //   For some configurations it remains possible to have dependencies on transactions that already have dependencies
             //   but if squashEveryBlock = 1, then that is not possible.
-            override fun txAltered(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
+            override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
                 val index = selectedPrevious.indexOf(oldHash)
                 if(index != -1)
                     selectedPrevious[index] = newHash
             }
-            override fun txRejected(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
+            override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
                 selectedPrevious.remove(oldHash)
                 numberOfCurrentlyPersistedTransactions--
             }
-            override fun txRemoved(chain: Chain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
+            override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
                 selectedPrevious.remove(oldHash)
                 numberOfCurrentlyPersistedTransactions--
             }
         }, store)
+        instance.consensus as ManualConsensusAlgorithm
 
         val txGenRandom = Random(1) //deterministic since seeded
 
