@@ -36,7 +36,7 @@ class Chain(val app: Application,
      *
      * todo - i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
      */
-    internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>) {
+    internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>): Boolean {
         //change app state based on added transactions
         app.newBlock(instance, relayBlock)
 
@@ -76,10 +76,12 @@ class Chain(val app: Application,
             store.commit()
 
             instance.consensus.notifyNewLatestBlockPersisted(newBlock)
+            return true
         } else {
             store.commit()
 
             LOG.fine("No transactions would be in new block after verification and squash - NOT creating empty block")
+            return false
         }
     }
 

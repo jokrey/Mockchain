@@ -49,6 +49,8 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             convo.close() //todo - instead only request header for now answer that proof and previous hash are ok, then request entire block
             val receivedBlock = Block(m0.asBytes())
 
+            instance.log("received unconfirmed block = $receivedBlock")
+
             val proofValid = instance.consensus.validateJustReceivedProof(receivedBlock)
             if(! proofValid) return@ConversationAnswererChangeThisName
 

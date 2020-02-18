@@ -2,8 +2,6 @@ package jokrey.mockchain
 
 import jokrey.mockchain.application.Application
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
-import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
-import jokrey.mockchain.consensus.ProofOfWorkConsensus
 import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.network.ChainNode
 import jokrey.mockchain.storage_classes.*
@@ -23,7 +21,7 @@ import jokrey.utilities.network.link2peer.P2Link
 class Nockchain(app: Application,
                 val selfLink: P2Link,
                 store: StorageModel = NonPersistentStorage(),
-                consensusAlgorithm: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, ImmutableByteArray(selfLink.bytesRepresentation))) : Mockchain(app, store, consensusAlgorithm) {
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, ImmutableByteArray(selfLink.bytesRepresentation))) : Mockchain(app, store, consensus) {
     private val node = ChainNode(selfLink, 10, this)
 
     /** @see P2LNode.establishConnections */

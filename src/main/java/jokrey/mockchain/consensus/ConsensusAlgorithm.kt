@@ -46,9 +46,10 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val selectedVerifiedTransactionHashes = selectedVerifiedTransactions.map { it.hash }.toMutableList()
 
         val newBlock = Block(latestHash, proof, merkleRoot, selectedVerifiedTransactionHashes.toTypedArray())
-        instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
+        val newBlockAdded = instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
 
-        instance.notifyNewLocalBlockAdded(newBlock)
+        if(newBlockAdded)
+            instance.notifyNewLocalBlockAdded(newBlock)
     }
 
     /**
