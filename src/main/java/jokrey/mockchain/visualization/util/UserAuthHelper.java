@@ -61,6 +61,10 @@ public class UserAuthHelper {
         return new KeyPair(getPublicKey(publicRaw), getPrivateKey(privateRaw));
     }
 
+    public static int signatureLength() {
+        return 256;
+    }
+
     /**
      * Signs the given message with the given private key
      * @param message_to_sign given message

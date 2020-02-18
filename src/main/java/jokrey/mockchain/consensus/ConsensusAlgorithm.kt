@@ -16,7 +16,7 @@ import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
  *
  * @author jokrey
  */
-abstract class ConsensusAlgorithm(protected val instance: Mockchain) {
+abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable {
     /**
      * Will attempt to add as many of the selected transactions AS POSSIBLE.
      * Those transactions that are rejected by either application verification and squash verification will be ignored.
@@ -72,12 +72,16 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) {
         return true
     }
 
+    internal fun runConsensusLoopInNewThread() {
+        Thread(this).start()
+    }
 
-    internal abstract fun runConsensusLoopInNewThread()
-    internal abstract fun notifyNewLatestBlock(newBlock: Block)
+
+    abstract override fun run()
+    internal abstract fun notifyNewLatestBlockPersisted(newBlock: Block)
     internal abstract fun notifyNewTransactionInMemPool(newTx: Transaction)
 
-    internal abstract fun validateProof(receivedBlock: Block): Boolean
+    internal abstract fun validateJustReceivedProof(receivedBlock: Block): Boolean
 
     protected abstract fun extractRequestSquashFromProof(proof: Proof): Boolean
     protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ImmutableByteArray

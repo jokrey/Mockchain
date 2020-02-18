@@ -4,7 +4,6 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.bitsandbytes.BitHelper
-import java.lang.Thread
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -44,9 +43,6 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
 
     private val lock = ReentrantLock()
     private val condition = lock.newCondition()
-    final override fun runConsensusLoopInNewThread() {
-        Thread(this).start()
-    }
 
     //only access in synchronization blocks
     private var newSquashStateInCaseOfApproval: SquashAlgorithmState? = null
@@ -84,7 +80,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
 
                 BitHelper.writeInt32(proofToSolve, 1, currentNonce)
 
-                val solve = Hash(proofToSolve)
+                val solve = calculateSolve(latestBlockHash, merkleRootOfSelectedTxs, proofToSolve)
                 val accepted = verifySolveAttempt(solve.raw, difficulty)
 
                 if(accepted) {
@@ -100,6 +96,10 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
         }
     }
 
+    private fun calculateSolve(latestBlockHash: Hash?, merkleRootOfSelectedTxs: Hash, proofToSolve: ByteArray) =
+        Hash(latestBlockHash?.raw ?: byteArrayOf(), merkleRootOfSelectedTxs.raw, proofToSolve)
+
+
     private fun verifySolveAttempt(solve: ByteArray, difficulty: Int): Boolean {
         for(i in 0..difficulty)
             if(solve[i] != 0.toByte())
@@ -107,7 +107,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
         return true
     }
 
-    final override fun notifyNewLatestBlock(newBlock: Block) {
+    final override fun notifyNewLatestBlockPersisted(newBlock: Block) {
         reselectTxsToBuild()
     }
     final override fun notifyNewTransactionInMemPool(newTx: Transaction) {
@@ -119,14 +119,15 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
     }
 
     final override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
-    final override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ImmutableByteArray(proof.raw.copyOfRange(5, proof.size - 20))
+    final override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ImmutableByteArray(proof.raw.copyOfRange(5, proof.size - Hash.length()))
     final override fun getLocalIdentity() = minerIdentity
-    final override fun validateProof(receivedBlock: Block): Boolean {
+    final override fun validateJustReceivedProof(receivedBlock: Block): Boolean {
         val proofToValidate = receivedBlock.proof
         val givenSolve = ByteArray(Hash.length())
         System.arraycopy(proofToValidate.raw, proofToValidate.raw.size-givenSolve.size, givenSolve, 0, givenSolve.size)
+        val proofToSolve = proofToValidate.raw.copyOfRange(0, proofToValidate.size - givenSolve.size)
 
-        return verifySolveAttempt(givenSolve, difficulty)
+        return verifySolveAttempt(givenSolve, difficulty) && givenSolve.contentEquals(calculateSolve(receivedBlock.previousBlockHash, receivedBlock.merkleRoot, proofToSolve).raw)
     }
 }
 

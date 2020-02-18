@@ -25,11 +25,11 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
     override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
     override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ImmutableByteArray(ByteArray(0))
     override fun getLocalIdentity() = ImmutableByteArray(ByteArray(0))
-    override fun validateProof(receivedBlock: Block)
+    override fun validateJustReceivedProof(receivedBlock: Block)
             = receivedBlock.proof.size == 1 && (receivedBlock.proof[0] == 0.toByte() || receivedBlock.proof[0] == 1.toByte())
 
-    override fun runConsensusLoopInNewThread() {}
-    override fun notifyNewLatestBlock(newBlock: Block) {}
+    override fun run() {}
+    override fun notifyNewLatestBlockPersisted(newBlock: Block) {}
     override fun notifyNewTransactionInMemPool(newTx: Transaction) {}
 }
 class ManualConsensusAlgorithmCreator(private val squashEveryNRounds: Int = -1) : ConsensusAlgorithmCreator {

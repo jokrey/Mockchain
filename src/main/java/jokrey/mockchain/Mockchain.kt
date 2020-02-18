@@ -18,7 +18,7 @@ import java.lang.System.err
 
 open class Mockchain(internal val app: Application,
                      store: StorageModel = NonPersistentStorage(),
-                     consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) {
+                     consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable {
     internal val memPool = MemPool()
     internal val chain: Chain = Chain(app, this, store)
     internal val consensus = consensus.create(this)
@@ -75,6 +75,10 @@ open class Mockchain(internal val app: Application,
 
     internal open fun log(s: String) {
         err.println(s)
+    }
+
+    override fun close() {
+        throw IllegalAccessError("cannot close a blockchain... But note that if you don't you (might) get a memory leak.")
     }
 }
 

@@ -75,7 +75,7 @@ class Chain(val app: Application,
             //commit changes generated during squash and addition of newest block (required to be done before app.newBlock, because that one is likely to query the store)
             store.commit()
 
-            instance.consensus.notifyNewLatestBlock(newBlock)
+            instance.consensus.notifyNewLatestBlockPersisted(newBlock)
         } else {
             store.commit()
 
