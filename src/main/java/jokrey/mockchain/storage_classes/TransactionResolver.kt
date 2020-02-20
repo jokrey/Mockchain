@@ -2,6 +2,8 @@ package jokrey.mockchain.storage_classes
 
 /**
  * Interface used within the squash algorithm to allow different models of storing transactions to be used to calculate the dependency level of a transaction
+ *
+ * Thread safety NOT guaranteed
  */
 interface TransactionResolver {
     /**
@@ -37,3 +39,4 @@ fun Map<TransactionHash, Transaction>.asTxResolver(): TransactionResolver {
 }
 
 fun Array<Transaction>.asTxResolver() = this.associateBy { it.hash }.asTxResolver()
+fun List<Transaction>.asTxResolver() = this.associateBy { it.hash }.asTxResolver()

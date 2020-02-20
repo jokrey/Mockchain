@@ -1,10 +1,7 @@
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.Nockchain
-import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.ProofOfStaticStakeConsensusCreator
-import jokrey.mockchain.consensus.ProofOfWorkConsensus
 import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
-import jokrey.mockchain.storage_classes.ImmutableByteArray
 import jokrey.mockchain.storage_classes.Transaction
 import jokrey.mockchain.visualization.util.EmptyApplication
 import jokrey.mockchain.visualization.util.UserAuthHelper
@@ -14,7 +11,6 @@ import jokrey.utilities.simple.data_structure.queue.ConcurrentQueueTest.sleep
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  *
@@ -23,14 +19,14 @@ import kotlin.test.assertTrue
 class ConsensusTests {
     @Test
     fun powTest() {
-        val instance = Mockchain(EmptyApplication(), consensus = SimpleProofOfWorkConsensusCreator(1, ImmutableByteArray(ByteArray(12))))
+        val instance = Mockchain(EmptyApplication(), consensus = SimpleProofOfWorkConsensusCreator(1, ByteArray(12)))
 
         for (i in 1..100)
             instance.commitToMemPool(Transaction(BitHelper.getBytes(i)))
 
         sleep(1000)
 
-        assertEquals(100, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(100, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -43,14 +39,14 @@ class ConsensusTests {
 
         sleep(1500)
 
-        assertEquals(50, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(50, instance.chain.persistedTxCount())
 
         for (i in 51..100)
             instance.commitToMemPool(Transaction(BitHelper.getBytes(i)))
 
         sleep(1500)
 
-        assertEquals(100, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(100, instance.chain.persistedTxCount())
     }
 
     @Test fun possTest_3nodes() {
@@ -94,7 +90,7 @@ class ConsensusTests {
 
     private fun assertAllEqualAnd(numPersisted: Int, vararg instances: Nockchain) {
         for(instance in instances)
-            assertEquals(numPersisted, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(numPersisted, instance.chain.persistedTxCount())
 
         for(i in 0 until (instances.size-1)) {
             assertArrayEquals(instances[i].chain.getBlocks(), instances[i + 1].chain.getBlocks())

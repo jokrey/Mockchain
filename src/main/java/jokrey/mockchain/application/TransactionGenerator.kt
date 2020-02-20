@@ -18,7 +18,7 @@ interface TransactionGenerator {
 }
 
 
-class EmptyTransactionGenerator : TransactionGenerator {
+class NoTransactionGenerator : TransactionGenerator {
     override fun next(instance: Mockchain, step: Long, random: Random): Optional<Transaction> {
         return Optional.empty()
     }

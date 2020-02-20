@@ -4,7 +4,10 @@ import jokrey.mockchain.application.Application
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.network.ChainNode
-import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.storage_classes.Block
+import jokrey.mockchain.storage_classes.NonPersistentStorage
+import jokrey.mockchain.storage_classes.StorageModel
+import jokrey.mockchain.storage_classes.Transaction
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
 
@@ -21,15 +24,15 @@ import jokrey.utilities.network.link2peer.P2Link
 class Nockchain(app: Application,
                 val selfLink: P2Link,
                 store: StorageModel = NonPersistentStorage(),
-                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, ImmutableByteArray(selfLink.bytesRepresentation))) : Mockchain(app, store, consensus) {
-    private val node = ChainNode(selfLink, 10, this)
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.bytesRepresentation)) : Mockchain(app, store, consensus) {
+    internal val node = ChainNode(selfLink, 10, this)
 
     /** @see P2LNode.establishConnections */
-    fun connect(vararg links: P2Link) {
+    fun connect(vararg links: P2Link, catchup: Boolean = false) {
         node.connect(*links)
     }
     /** @see P2LNode.recursiveGarnerConnections */
-    fun recursiveConnect(connectionLimit:Int, vararg links: P2Link) {
+    fun recursiveConnect(connectionLimit:Int, vararg links: P2Link, catchup: Boolean = false) {
         node.recursiveConnect(connectionLimit, *links)
     }
 
@@ -44,6 +47,10 @@ class Nockchain(app: Application,
         super.notifyNewLocalBlockAdded(block)
         node.relayValidBlock(block)
     }
+    fun notifyNewRemoteBlockAdded(block: Block) {
+        super.notifyNewLocalBlockAdded(block)
+    }
+
 
     override fun log(s: String) {
         System.err.println("$selfLink - $s")

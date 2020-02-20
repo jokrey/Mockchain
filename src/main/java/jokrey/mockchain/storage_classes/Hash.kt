@@ -8,7 +8,7 @@ import java.util.*
  *
  * By default the sha-256 hashing algorithm is used.
  *
- * Immutable
+ * IMMUTABLE -> Thread Safe
  */
 open class Hash : ImmutableByteArray {
     /**

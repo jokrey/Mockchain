@@ -4,6 +4,8 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * Will propose blocks to the chain. Either based on internal rules on its own, or upon an external command.
@@ -58,11 +60,11 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
      *
      * TODO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
      */
-    internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block): Boolean {
+    internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block, resolver: TransactionResolver): Boolean {
         val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedBlock.proof)
 
-        val proposedTransactions = receivedBlock.map { instance.memPool[it] }.toMutableList()
+        val proposedTransactions = receivedBlock.map { resolver[it] }.toMutableList()
         val newSquashState = removeAllRejectedTransactionsFrom(blockCreatorIdentity, proposedTransactions)
 
         if(proposedTransactions.size != receivedBlock.size) //if even a single transaction in
@@ -85,12 +87,14 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     internal abstract fun validateJustReceivedProof(receivedBlock: Block): Boolean
 
     protected abstract fun extractRequestSquashFromProof(proof: Proof): Boolean
-    protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ImmutableByteArray
-    protected abstract fun getLocalIdentity(): ImmutableByteArray
+    protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray
+    protected abstract fun getLocalIdentity(): ByteArray
+
+    abstract fun getCreator(): ConsensusAlgorithmCreator
 
 
     //todo - i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
-    protected fun removeAllRejectedTransactionsFrom(blockCreatorIdentity: ImmutableByteArray, proposed: MutableList<Transaction>) : SquashAlgorithmState? {
+    protected fun removeAllRejectedTransactionsFrom(blockCreatorIdentity: ByteArray, proposed: MutableList<Transaction>) : SquashAlgorithmState? {
         var newSquashState: SquashAlgorithmState? = null
         do {
             var rejectedTxCount = 0
@@ -128,7 +132,6 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
             instance.log("$reason rejected: $rejectedTransaction")
         }
     }
-
 
 
     /*

@@ -18,13 +18,13 @@ import java.lang.System.err
 
 open class Mockchain(internal val app: Application,
                      store: StorageModel = NonPersistentStorage(),
-                     consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable {
+                     consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
     internal val memPool = MemPool()
-    internal val chain: Chain = Chain(app, this, store)
-    internal val consensus = consensus.create(this)
+    internal val chain = Chain(app, this, store)
+    internal val consensus =  consensus.create(this)
 
     init {
-        this.consensus.runConsensusLoopInNewThread()
+        this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass mockchain is not initialized yet.
     }
 
     /**
@@ -49,14 +49,12 @@ open class Mockchain(internal val app: Application,
 
 
 
-    /**
-     * Returns true if the hash is known to this Mockchain node(i.e. in mempool or chain), false if it is not resolvable
-     */
-    operator fun contains(aHash: TransactionHash) = memPool.contains(aHash) || chain.isPersisted(aHash)
-
-    operator fun get(txp: TransactionHash): Transaction {
-        return memPool.getUnsure(txp)?: chain[txp]
-    }
+    /** Returns true if the hash is known to this Mockchain node(i.e. in mempool or chain), false if it is not resolvable */
+    override operator fun contains(hash: TransactionHash) = memPool.contains(hash) || chain.isPersisted(hash)
+    /** Returns the tx if it is in either mem pool or chain, throws a null pointer exception otherwise */
+    override operator fun get(hash: TransactionHash) = memPool.getUnsure(hash)?: chain[hash]
+    /** Returns the tx if it is in either mem pool or chain, returns null otherwise */
+    override fun getUnsure(hash: TransactionHash) = memPool.getUnsure(hash)?: chain.getUnsure(hash)
 
     /**
      * Adds the current size of the permanent storage and the Mempool to roughly calculate the current size of the chain

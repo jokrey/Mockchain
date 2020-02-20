@@ -5,7 +5,10 @@ import jokrey.mockchain.application.Application
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SequenceSquashHandler
-import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.storage_classes.Block
+import jokrey.mockchain.storage_classes.RejectionReason
+import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.TransactionHash
 import java.util.*
 
 /**
@@ -15,8 +18,8 @@ import java.util.*
 
 
 open class EmptyApplication : Application {
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
-    override fun newBlock(instance: Mockchain, block: Block) {}
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {}
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {}
     override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) { }

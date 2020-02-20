@@ -5,7 +5,10 @@ import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SequenceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
-import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.storage_classes.Block
+import jokrey.mockchain.storage_classes.RejectionReason
+import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.TransactionHash
 
 interface Application {
     /**
@@ -51,14 +54,18 @@ interface Application {
      *     Specifically in PoW consensus algorithms an incentive may be given by allowing the block creator to add a special transaction.
      *     This information is required here to verify such a transaction.
      */
-    fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction) : List<Pair<Transaction, RejectionReason.APP_VERIFY>>
+    fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction) : List<Pair<Transaction, RejectionReason.APP_VERIFY>>
 
     /**
      * Alters the internal application state
      *     should quite likely take into consideration the dependency and already alter it's internal state based on them
      *     it should NOT wait for them to be removed from the actual chain in txRemoved or txAltered
+     *
+     * Implementations should not attempt to query the transactions in the block. The given transactions may neither be in mem pool or chain in some circumstances.
+     * Additionally it is less efficient than simply accessing the given list.
+     * The new transactions in the given list are in the same order as the hashes in the block.
      */
-    fun newBlock(instance: Mockchain, block: Block)
+    fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>)
 
     //: the following two methods might be more problem than helpful - and be theoretically not required
     //  according to the squash condition (a replay of the squashed chain should yield the same resulting application state as the old(unsquashed) chain)

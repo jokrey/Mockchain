@@ -1,10 +1,6 @@
 package jokrey.mockchain.application.examples.supplychain
 
 import jokrey.mockchain.Mockchain
-import jokrey.utilities.encoder.as_union.li.bytes.LIbae
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.serialization.LIObjectEncoderFull
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.type.transformer.LITypeToBytesTransformer
 import jokrey.mockchain.squash.SequenceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
@@ -12,6 +8,10 @@ import jokrey.mockchain.transaction_transformation.ManyTransactionHandler
 import jokrey.mockchain.transaction_transformation.SerializedTransactionHandler
 import jokrey.mockchain.visualization.VisualizableApp
 import jokrey.mockchain.visualization.util.UserAuthHelper
+import jokrey.utilities.encoder.as_union.li.bytes.LIbae
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.serialization.LIObjectEncoderFull
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.type.transformer.LITypeToBytesTransformer
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -39,7 +39,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
     private val wpeListeners = ArrayList<WPEListener>()
     private val routeListeners = ArrayList<Pair<String, (SupplyRoute, Transaction) -> Unit>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         //does NOT do virtual changes yet, so only one tx in any sequence will ever be accepted - this is a todo
@@ -62,7 +62,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
         return denied
     }
 
-    override fun newBlock(instance: Mockchain, block: Block) {
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
         SupplyChainTxHandler(
                 { swpe, tx ->
                     val wpe = swpe.wpe
@@ -72,7 +72,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
                 { sr, tx ->
                     tracks[sr.name] = sr
                     routeListeners.filter { it.first == sr.name }.forEach { it.second(sr, tx) }
-                }).handleAll(block.map { instance[it] })
+                }).handleAll(newTransactions)
     }
 
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
@@ -185,7 +185,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
 
 
     override fun getEqualFreshCreator(): () -> VisualizableApp = { SupplyChain(totalNumberOfWayPointsToGenerate, wayPointsPerRouteLimit) }
-    override fun getCreatorParamNames() = arrayOf("totalNumberOfWayPointsToGenerate", "wayPointsPerRouteLimit")
+    override fun getCreatorParamNames() = arrayOf("totalNumberOfWayPointsToGenerate (int)", "wayPointsPerRouteLimit (int)")
     override fun getCurrentParamContentForEqualCreation() = arrayOf(totalNumberOfWayPointsToGenerate.toString(), wayPointsPerRouteLimit.toString())
     override fun createNewInstance(vararg params: String) = SupplyChain(params[0].toInt(), params[1].toInt())
     override fun createTxFrom(input: String): Transaction {

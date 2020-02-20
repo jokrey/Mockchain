@@ -1,14 +1,17 @@
 package jokrey.mockchain.network
 
 import jokrey.mockchain.Mockchain
+import jokrey.mockchain.Nockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LMessage
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.ConversationAnswererChangeThisName
+import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.network.link2peer.util.TimeoutException
 import java.net.SocketAddress
+import java.util.concurrent.RejectedExecutionException
 
 private const val TX_BROADCAST_TYPE:Short = 1
 private const val NEW_BLOCK_TYPE:Int = 2
@@ -21,8 +24,8 @@ private const val TX_REQUEST:Int = 3
  * Its usage is purely internal. Only connecting requires user input, please use the wrapper methods for that.
  */
 internal class ChainNode(selfLink: P2Link, peerLimit:Int,
-                private val instance: Mockchain) {
-    private val p2lNode = P2LNode.create(selfLink, peerLimit)
+                private val instance: Nockchain) {
+    internal val p2lNode = P2LNode.create(selfLink, peerLimit)
     private val pool = P2LThreadPool(4, 32)
 
     /** @see P2LNode.establishConnections */
@@ -52,39 +55,58 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             instance.log("received unconfirmed block = $receivedBlock")
 
             val proofValid = instance.consensus.validateJustReceivedProof(receivedBlock)
-            if(! proofValid) return@ConversationAnswererChangeThisName
+            if(! proofValid) {
+                instance.log("proof invalid, rejected block = $receivedBlock")
+                return@ConversationAnswererChangeThisName
+            }
 
             val latestLocalBlockHash = instance.chain.getLatestHash()
-            if(latestLocalBlockHash != receivedBlock.previousBlockHash) //todo - allow forks! - allow catch up!
+            if(latestLocalBlockHash != receivedBlock.previousBlockHash) {//todo - allow forks! - allow catch up!
+                instance.log("latest block hash invalid, rejected block = $receivedBlock")
                 return@ConversationAnswererChangeThisName
+            }
 
             //ensure all tx available (i.e. in own mempool)
-            val numberOfUnavailableTransactions = pool.executeThreadedCounter(
-                receivedBlock.filter { it !in instance.memPool }.map {txp ->
+            val transactionQueries = pool.execute(
+                receivedBlock.map {txp ->
                     P2LThreadPool.ProvidingTask {
                         try {
-                            val nowAvailable = requestTxFrom(txp, convo.peer/*p2lNode.establishedConnections.random()*/)
-                            !nowAvailable
+                            instance.memPool.getUnsure(txp) ?: requestTxFrom(txp, convo.peer/*p2lNode.establishedConnections.random()*/)
                         } catch (t: Throwable) {
                             t.printStackTrace()
-                            true
+                            null
                         }
                     }
                 }
             )
-            if(numberOfUnavailableTransactions.get() != 0) return@ConversationAnswererChangeThisName
+            val queriedTransactions = P2LFuture.oneForAll(transactionQueries).get().filterNotNull()
+            if(receivedBlock.size > queriedTransactions.size) {
+                instance.log("failed to query x=${receivedBlock.size - queriedTransactions.size} missing txs, rejected block = $receivedBlock")
+                return@ConversationAnswererChangeThisName
+            }
 
-            val allTxValid = instance.consensus.attemptVerifyAndAddRemoteBlock(receivedBlock)
-            if(! allTxValid) return@ConversationAnswererChangeThisName
+            try {
+                val allTxValid = instance.consensus.attemptVerifyAndAddRemoteBlock(receivedBlock, queriedTransactions.asTxResolver())
+                if(! allTxValid) {
+                    instance.log("not all tx of remote block valid, rejected block = $receivedBlock")
+                    return@ConversationAnswererChangeThisName
+                }
 
-            instance.notifyNewLocalBlockAdded(receivedBlock)
+                instance.notifyNewRemoteBlockAdded(receivedBlock)
+                relayValidBlock(receivedBlock, convo.peer)
+            } catch (e: RejectedExecutionException) {
+                instance.log("concurrent block added, rejected block = $receivedBlock")
+            }
+
         }
 
         p2lNode.registerConversationFor(NEW_BLOCK_TYPE, newBlockConversation)
 
         p2lNode.registerConversationFor(TX_REQUEST) { convo, m0 ->
             val requestedTxp = TransactionHash(Hash(m0.asBytes(), true))
-            val queriedTx = instance.memPool.getUnsure(requestedTxp)
+//            instance.log("received request for $requestedTxp")
+            val queriedTx = instance.getUnsure(requestedTxp) //may already be persisted, so check chain too
+//            instance.log("queriedTx = $queriedTx")
             if(queriedTx == null)
                 convo.answerClose(ByteArray(0))
             else
@@ -92,32 +114,35 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         }
     }
 
-    internal fun relayValidBlock(block: Block) {
-        pool.execute(p2lNode.establishedConnections.map { peer ->
+    internal fun relayValidBlock(block: Block, exception: SocketAddress? = null) {
+        pool.executeThreadedSuccessCounter(p2lNode.establishedConnections.map { peer ->
             P2LThreadPool.Task {
-                val convo = p2lNode.convo(NEW_BLOCK_TYPE, peer)
-                convo.setMaxAttempts(3)
+                val to = peer.socketAddress
+                if(to != exception) {
+                    val convo = p2lNode.convo(NEW_BLOCK_TYPE, to)
+                    convo.setMaxAttempts(3)
 
-                val encoded = block.encode()
-                convo.initClose(encoded)
+                    val encoded = block.encode()
+                    convo.initClose(encoded)
+                }
             }
         })
     }
 
-    private fun requestTxFrom(txp: TransactionHash, vararg links: SocketAddress) : Boolean {
+    private fun requestTxFrom(txp: TransactionHash, vararg links: SocketAddress) : Transaction? {
         for(link in links) {
             try {
                 val convo = p2lNode.convo(TX_REQUEST, link)
+//                instance.log("requesting $txp from $link")
                 val receivedRaw = convo.initExpectClose(txp.raw)
-                if(receivedRaw.isEmpty()) return false
-                val receivedTx = Transaction.decode(receivedRaw)
-                instance.memPool[txp] = receivedTx
-                return true
+//                instance.log("receivedRaw = ${receivedRaw.toList()}")
+                if(receivedRaw.isEmpty()) return null
+                return Transaction.decode(receivedRaw, true)
             } catch (e: TimeoutException) {
-                return false
+                return null
             }
         }
-        return false
+        return null
     }
 
     private var txBroadcastCounter = 0

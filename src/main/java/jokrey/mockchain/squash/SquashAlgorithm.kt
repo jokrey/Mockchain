@@ -118,7 +118,7 @@ fun findChanges(chain: Chain,
     return state
 }
 
-fun selectStateAndSubset(chain: Chain, priorState: SquashAlgorithmState?, memPool: Array<Transaction>):
+fun selectStateAndSubset(chain: Chain, priorState: SquashAlgorithmState?, proposed: Array<Transaction>):
         Pair<SquashAlgorithmState, Iterable<Transaction>> {
 // return chain.getPersistedTransactions() + subset                                 // too slow
 // return completeDependencyList(chain, reverseDependencies, *subset).asIterable()  //this creates an issue:: The unfound dependency problem persists here
@@ -128,10 +128,10 @@ fun selectStateAndSubset(chain: Chain, priorState: SquashAlgorithmState?, memPoo
         return Pair(
                 SquashAlgorithmState(),
                 chain.getAllTransactionWithDependenciesOrThatAreDependedUpon() +
-                 memPool.asIterable()
+                 proposed.asIterable()
         )
     } else {
-        Pair(SquashAlgorithmState(priorState), memPool.asIterable())
+        Pair(SquashAlgorithmState(priorState), proposed.asIterable())
     }
 }
 

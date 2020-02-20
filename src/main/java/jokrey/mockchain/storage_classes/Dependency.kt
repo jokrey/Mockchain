@@ -2,6 +2,8 @@ package jokrey.mockchain.storage_classes
 
 /**
  * Tuple of a hash and a dependency type
+ *
+ * IMMUTABLE -> Thread Safe
  */
 data class Dependency(val txp:TransactionHash, val type:DependencyType) {
     constructor(tx: Transaction, type: DependencyType) : this(tx.hash, type)

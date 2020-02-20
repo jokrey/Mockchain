@@ -30,7 +30,7 @@ class GeneralTests {
         instance.commitToMemPool(tx4)
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(5, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(5, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -45,7 +45,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(5, instance.chain.getPersistedTransactions().asSequence().toList().size) //as with build upon they don't actually remove anything, but just cause a call to the application to alter the newer tx
+        assertEquals(5, instance.chain.persistedTxCount()) //as with build upon they don't actually remove anything, but just cause a call to the application to alter the newer tx
     }
 
     @Test
@@ -57,7 +57,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -72,7 +72,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(tx4.content, instance.chain.getPersistedTransactions().asSequence().toList().first().content)
     }
 
@@ -87,13 +87,13 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
 
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.SEQUENCE_END)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -104,11 +104,11 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(false)
-        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
+        assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
     @Test
-    fun testChangeReintroductionToChainMaintainsCorrectHashChain() {
+    fun testChangeReintroductionToChainMaintainsCorrectHashChain_nonPersistent() {
         val instance = Mockchain(EmptyApplication())
         instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
@@ -181,7 +181,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(false)
-        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
+        assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
     @Test
@@ -193,7 +193,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(false)
-        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
+        assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
     @Test
@@ -208,7 +208,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx2.hash, DependencyType.REPLACES))) //a dependency on a dependency loop is rightfully denied
 
         instance.consensus.performConsensusRound(false)
-        assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().isEmpty())
+        assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
     @Test
@@ -224,7 +224,7 @@ class GeneralTests {
 
         instance.consensus.performConsensusRound(false)
         assertEquals(tx0, instance.chain.getPersistedTransactions().asSequence().toList().first())
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -237,7 +237,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
         assertTrue( tx1 == instance.chain.getPersistedTransactions().asSequence().toList().first() ||
                     tx2 == instance.chain.getPersistedTransactions().asSequence().toList().first())
     }
@@ -265,7 +265,7 @@ class GeneralTests {
 
         instance.consensus.performConsensusRound(false)
 
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
 
         instance.consensus.performConsensusRound(true)
     }
@@ -286,7 +286,7 @@ class GeneralTests {
 
         instance.consensus.performConsensusRound(false)
 
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
 
         instance.consensus.performConsensusRound(true)
     }
@@ -300,13 +300,13 @@ class GeneralTests {
 
         instance.commitToMemPool(tx0)
         instance.consensus.performConsensusRound(false)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
         instance.consensus.performConsensusRound(false)
 
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -319,7 +319,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART), Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(2, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -334,9 +334,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -353,10 +353,10 @@ class GeneralTests {
 
         println("instance.chain.getPersistedTransactions().asSequence().toList().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList().toList()}")
 
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
         println("instance.chain.getPersistedTransactions().asSequence().toList().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList().toList()}")
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -388,9 +388,9 @@ class GeneralTests {
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
             instance.consensus.performConsensusRound(false)
-            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(3, instance.chain.persistedTxCount())
             instance.consensus.performConsensusRound(true)
-            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
+            assertEquals(3, instance.chain.persistedTxCount()) //squash does changes, as checked in the following, but it does not replace a tx
 //        assertEquals(123, instance.chain.getPersistedTransactions().asSequence().toList()[1].content[0])
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size)
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[1].content.size)
@@ -414,13 +414,13 @@ class GeneralTests {
             instance.commitToMemPool(Transaction(tx2.content, Dependency(willBeTx1.hash, DependencyType.BUILDS_UPON), Dependency(willBeTx1.hash, DependencyType.REPLACES_PARTIAL)))
 
             instance.consensus.performConsensusRound(false)
-            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(3, instance.chain.persistedTxCount())
             println("persisted prior to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("persisted prior to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
             instance.consensus.performConsensusRound(true)
             println("persisted AFTER to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("persisted AFTER to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
-            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size) //squash does changes, as checked in the following, but it does not replace a tx
+            assertEquals(3, instance.chain.persistedTxCount()) //squash does changes, as checked in the following, but it does not replace a tx
 //        assertEquals(123, instance.chain.getPersistedTransactions().asSequence().toList()[1].content[0])
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size)
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[1].content.size)
@@ -471,9 +471,9 @@ class GeneralTests {
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
             instance.consensus.performConsensusRound(false)
-//        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+//        assertEquals(2, instance.chain.persistedTxCount())
             instance.consensus.performConsensusRound(true)
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(2, instance.chain.persistedTxCount())
         }
 
         run {
@@ -490,9 +490,9 @@ class GeneralTests {
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
             instance.consensus.performConsensusRound(false)
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(2, instance.chain.persistedTxCount())
             instance.consensus.performConsensusRound(true)
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(2, instance.chain.persistedTxCount())
         }
     }
 
@@ -507,9 +507,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx0.hash, DependencyType.REPLACES))) //valid, because tx2 should be rejected, because it's dependency tx4 does not exist
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(2, instance.chain.persistedTxCount())
     }
 
     //TODO:: test MORE interactions between dependencies - prohibit those that make no sense
@@ -525,7 +525,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
 
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
 //    BUILD-UPON + PARTIAL_REPLACE
@@ -549,9 +549,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))//because app does complete replace
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         println("res = "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() })
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,1,3,4))})//what tx0 becomes
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(123,2,3,4))})//what tx1 becomes
@@ -569,9 +569,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(4, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -586,9 +586,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(4, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(2, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -605,13 +605,13 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(3, instance.chain.persistedTxCount())
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash }}")
         println("instance.chain.getPersistedTransactions().asSequence().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList()}")
         instance.consensus.performConsensusRound(true)
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash }}")
         println("instance.chain.getPersistedTransactions().asSequence().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList()}")
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -626,9 +626,9 @@ class GeneralTests {
 
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(4, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(2, instance.chain.persistedTxCount())
     }
 
     @Test
@@ -644,9 +644,9 @@ class GeneralTests {
 
 
         instance.consensus.performConsensusRound(false)
-        assertEquals(5, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(5, instance.chain.persistedTxCount())
         instance.consensus.performConsensusRound(true)
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
     }
 
     //: Build-upon without replace partial or replace, does not make sense - OR DOES IT?????
@@ -664,7 +664,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions().toTypedArray())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
 
         println("denied = ${denied}")
 
@@ -689,12 +689,12 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         //if we used verifyAll here this would work (i.e. correctly deny tx1
-        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions().toTypedArray())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
 
         assertEquals(1, denied.size)
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)), denied[0].first)
 
-        val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions().toTypedArray())
+        val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions())
         assertTrue(state.rejections.isNotEmpty())
 
     }
@@ -713,13 +713,13 @@ class GeneralTests {
 
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
-            val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions().toTypedArray())
+            val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
 
 
             assertEquals(1, denied.size)
             assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
 
-            val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions().toTypedArray())
+            val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions())
             assertTrue(state.rejections.isNotEmpty())
         }
 
@@ -740,13 +740,13 @@ class GeneralTests {
             instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
             instance.consensus.performConsensusRound(true)
 
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(2, instance.chain.persistedTxCount())
 
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
             instance.consensus.performConsensusRound(true)
 
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size) //still correct, but now tx1(A PERSISTED TX) has a missing dependency
+            assertEquals(2, instance.chain.persistedTxCount()) //still correct, but now tx1(A PERSISTED TX) has a missing dependency
 
             println(instance.chain.getPersistedTransactions().asSequence().toList().toList())
             instance.chain.getPersistedTransactions().asSequence().toList().forEach { persistedTransaction ->
@@ -789,7 +789,7 @@ class GeneralTests {
             println(instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println(instance.chain.getPersistedTransactions().asSequence().toList())
 
-            assertEquals(2, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(2, instance.chain.persistedTxCount())
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().contains(Transaction(byteArrayOf(1, 2, 3))))
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().contains(Transaction(byteArrayOf(1, 2))))
         }
@@ -822,7 +822,7 @@ class GeneralTests {
             println(instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println(instance.chain.getPersistedTransactions().asSequence().toList())
 
-            assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().size == 2)
+            assertTrue(instance.chain.persistedTxCount() == 2)
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().contains(Transaction(byteArrayOf(1, 2, 3))))
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().contains(Transaction(byteArrayOf(1, 2))))
         }
@@ -856,7 +856,7 @@ class GeneralTests {
 
         instance.consensus.performConsensusRound(false)
 
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList().toList()[0].content)
     }
 
@@ -887,7 +887,7 @@ class GeneralTests {
 
         instance.consensus.performConsensusRound(false)
 
-        assertEquals(1, instance.chain.getPersistedTransactions().asSequence().toList().size)
+        assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList()[0].content)
     }
 
@@ -923,7 +923,7 @@ class GeneralTests {
             println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList())
 
-            assertEquals(3, instance.chain.getPersistedTransactions().asSequence().toList().size)
+            assertEquals(3, instance.chain.persistedTxCount())
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,2,3))})
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,2))})
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,2, 3, 7))})

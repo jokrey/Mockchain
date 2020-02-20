@@ -1,12 +1,12 @@
 package jokrey.mockchain.application.examples.currency
 
 import jokrey.mockchain.Mockchain
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.VisualizableApp
 import jokrey.mockchain.visualization.util.contentIsArbitrary
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -23,7 +23,7 @@ class Currency : VisualizableApp {
     private val balances = HashMap<String, Long>()
     private val registrationTxs = HashMap<String, Transaction>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         val newlyDenied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
@@ -54,11 +54,9 @@ class Currency : VisualizableApp {
         return denied
     }
 
-    override fun newBlock(instance: Mockchain, block: Block) {
-        for(txp in block) {
-            val tx = instance[txp]
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
+        for(tx in newTransactions)
             executeTransaction(balances, registrationTxs, tx)
-        }
     }
 
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) { }

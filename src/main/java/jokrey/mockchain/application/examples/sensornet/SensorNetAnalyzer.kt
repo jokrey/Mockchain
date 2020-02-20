@@ -1,11 +1,11 @@
 package jokrey.mockchain.application.examples.sensornet
 
 import jokrey.mockchain.Mockchain
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.VisualizableApp
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -21,7 +21,7 @@ import kotlin.collections.HashMap
 class SensorNetAnalyzer: VisualizableApp {
     private val sensorData = HashMap<String, MutableList<SensorResult>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
         for(tx in txs) {
             val sr = srFromTx(tx)
@@ -51,8 +51,8 @@ class SensorNetAnalyzer: VisualizableApp {
             }
     }
 
-    override fun newBlock(instance: Mockchain, block: Block) {
-        for (res in Array(block.size) { srFromTx(instance[block[it]]) }) {
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
+        for (res in Array(block.size) { srFromTx(newTransactions[it]) }) {
             if (java.lang.Double.isNaN(res.second.result)) {
                 if (!res.second.isAverage)
                     throw IllegalStateException("Should not happen, verification should have caught this")

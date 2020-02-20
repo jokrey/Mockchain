@@ -1,7 +1,10 @@
 package jokrey.mockchain.application.examples.currency
 
 import jokrey.mockchain.Mockchain
-import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.storage_classes.Block
+import jokrey.mockchain.storage_classes.RejectionReason
+import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.TransactionHash
 import jokrey.mockchain.visualization.VisualizableApp
 import java.util.*
 import kotlin.collections.ArrayList
@@ -17,7 +20,7 @@ class CurrencyWithHistory : VisualizableApp {
     private val balances = HashMap<String, Long>()
     private val history = ArrayList<Triple<String, String, Long>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         val virtualBalances = balances.toMutableMap() //creates a copy
@@ -37,9 +40,8 @@ class CurrencyWithHistory : VisualizableApp {
         return denied
     }
 
-    override fun newBlock(instance: Mockchain, block: Block) {
-        for(txp in block) {
-            val tx = instance[txp]
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
+        for(tx in newTransactions) {
             executeTransaction(balances, tx = tx)
             val csp = crrFromTx(tx)
             if(csp is ValueTransaction) {

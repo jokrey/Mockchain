@@ -4,8 +4,8 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.util.UserAuthHelper
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
-import java.lang.IllegalArgumentException
 import java.security.KeyPair
+import java.util.*
 import kotlin.math.roundToInt
 
 /**
@@ -61,7 +61,9 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     //will not return before notifyNewLatestBlockPersisted - which resets the parameters
     private fun proposeBlock() {
         val selectedTxs = instance.memPool.getTransactions().toMutableList()
-        val newSquashState = removeAllRejectedTransactionsFrom(ImmutableByteArray(ownKeyPair.public.encoded), selectedTxs) //VERY IMPORTANT LINE
+        if(selectedTxs.isEmpty()) return //todo - should this be done differently? - this leads to multiple parties instantly proposing when the new tx is finally available to the mem pool
+
+        val newSquashState = removeAllRejectedTransactionsFrom(ownKeyPair.public.encoded, selectedTxs) //VERY IMPORTANT LINE
         val merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 
@@ -77,7 +79,7 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     }
 
     override fun notifyNewLatestBlockPersisted(newBlock: Block) {
-        currentIndex = plusInBounds(findIdentityIndex(extractBlockCreatorIdentityFromProof(newBlock.proof).raw), 1, preApprovedIdentitiesPKs.size)
+        currentIndex = plusInBounds(findIdentityIndex(extractBlockCreatorIdentityFromProof(newBlock.proof)), 1, preApprovedIdentitiesPKs.size)
         lastBlockAddedTimestamp = System.currentTimeMillis()
     }
 
@@ -95,28 +97,52 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     override fun notifyNewTransactionInMemPool(newTx: Transaction) {  }
 
     override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
-    override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ImmutableByteArray(proof.raw.copyOfRange(1, proof.size - UserAuthHelper.signatureLength()))
-    override fun getLocalIdentity() = ImmutableByteArray(ownKeyPair.public.encoded)
+    override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(1, proof.size - UserAuthHelper.signatureLength())
+    override fun getLocalIdentity(): ByteArray = ownKeyPair.public.encoded
     override fun validateJustReceivedProof(receivedBlock: Block): Boolean {
         val proofToValidate = receivedBlock.proof
         val allegedIdentity = extractBlockCreatorIdentityFromProof(proofToValidate)
 
-        val receivedIdentityIndex = findIdentityIndex(allegedIdentity.raw)
+        val receivedIdentityIndex = findIdentityIndex(allegedIdentity)
         if(receivedIdentityIndex == -1) return false
         val isCorrectIdentity = receivedIdentityIndex == currentIndex
         if(!isCorrectIdentity) {
             val timePassedSinceLast = System.currentTimeMillis() - lastBlockAddedTimestamp
-            return timePassedSinceLast > whenAmIAllowed(allegedIdentity.raw)
+            return timePassedSinceLast > whenAmIAllowed(allegedIdentity)
         }
 
         val signature = ByteArray(UserAuthHelper.signatureLength())
         System.arraycopy(proofToValidate.raw, proofToValidate.raw.size-signature.size, signature, 0, signature.size)
         val messageToSign = calculateMessageToSign(receivedBlock.previousBlockHash, receivedBlock.merkleRoot, proofToValidate.raw.copyOfRange(0, proofToValidate.size - signature.size))
 
-        return UserAuthHelper.verify(messageToSign, signature, allegedIdentity.raw)
+        return UserAuthHelper.verify(messageToSign, signature, allegedIdentity)
     }
+
+    override fun getCreator() = ProofOfStaticStakeConsensusCreator(fixedBlockIntervalMs, preApprovedIdentitiesPKs, ownKeyPair)
 }
 
 class ProofOfStaticStakeConsensusCreator(private val fixedBlockIntervalMs: Int, private val preApprovedIdentitiesPKs: Array<ByteArray>, private val ownKeyPair: KeyPair) : ConsensusAlgorithmCreator {
     override fun create(instance: Mockchain) = ProofOfStaticStake(instance, fixedBlockIntervalMs, preApprovedIdentitiesPKs, ownKeyPair)
+
+    override fun getEqualFreshCreator(): () -> ConsensusAlgorithmCreator = { ProofOfStaticStakeConsensusCreator(fixedBlockIntervalMs, preApprovedIdentitiesPKs, ownKeyPair) }
+    override fun createNewInstance(vararg params: String) = ProofOfStaticStakeConsensusCreator(params[0].toInt(), decodePublicKeys(params[1]), decodeKeyPair(params[2]))
+    override fun getCreatorParamNames() = arrayOf("fixedBlockIntervalMs (int)", "public keys of all peers (key0[base64], key1[base64], <etc..>)", "ownKeyPair (pubkey[base64], privkey[base64]")
+    override fun getCurrentParamContentForEqualCreation() = arrayOf(fixedBlockIntervalMs.toString(), encodePublicKeys(preApprovedIdentitiesPKs), encodeKeyPair(ownKeyPair))
 }
+
+fun generateKeyPairs(num: Int) = Array(num) { UserAuthHelper.generateKeyPair() }
+fun encodeKeyPair(pair: KeyPair) = base64Encode(pair.public.encoded)+":"+ base64Encode(pair.private.encoded)
+fun decodeKeyPair(encodedPair: String): KeyPair {
+    val split = encodedPair.trim().split(":")
+    return UserAuthHelper.readKeyPair(base64Decode(split[0]), base64Decode(split[1]))
+}
+fun encodeKeyPairs(pairs: Array<KeyPair>) = pairs.joinToString(",") { encodeKeyPair(it) }
+fun decodeKeyPairs(encodedPairs: String) = encodedPairs.split(",").map { decodeKeyPair(it) }.toTypedArray()
+fun extractPublicKeys(pairs: Array<KeyPair>) = pairs.map { it.public.encoded }.toTypedArray()
+fun encodePublicKeys(pairs: Array<KeyPair>) = encodePublicKeys(extractPublicKeys(pairs))
+fun encodePublicKeys(publicKeys: Array<ByteArray>) = publicKeys.joinToString(",") { base64Encode(it) }
+fun decodePublicKeys(encodedKeys: String) = encodedKeys.split(",").map { base64Decode(it.trim()) }.toTypedArray()
+fun extractKeyPair(encodedPairs: String, index: Int) = decodeKeyPairs(encodedPairs)[index]
+
+fun base64Encode(a: ByteArray): String = Base64.getEncoder().encodeToString(a)
+fun base64Decode(s: String): ByteArray = Base64.getDecoder().decode(s)

@@ -1,9 +1,10 @@
 package jokrey.mockchain.visualization
 
 import jokrey.mockchain.Mockchain
-import jokrey.mockchain.application.EmptyTransactionGenerator
 import jokrey.mockchain.application.TransactionGenerator
 import jokrey.mockchain.consensus.ManualConsensusAlgorithm
+import jokrey.mockchain.squash.fillLevelsFor
+import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.animation.engine.TickEngine
 import jokrey.utilities.animation.pipeline.AnimationObject
 import jokrey.utilities.animation.pipeline.AnimationObjectDrawer
@@ -13,8 +14,6 @@ import jokrey.utilities.animation.util.AEPoint
 import jokrey.utilities.animation.util.AERect
 import jokrey.utilities.animation.util.AESize
 import jokrey.utilities.debug_analysis_helper.TimeDiffMarker
-import jokrey.mockchain.squash.fillLevelsFor
-import jokrey.mockchain.storage_classes.*
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -26,12 +25,12 @@ import kotlin.collections.HashMap
  *
  * Examples of how to use the engine can be found in {@link VisualizationStarter}
  */
-open class TxVisualizationEngine(private val instance: Mockchain, private val txGen:TransactionGenerator = EmptyTransactionGenerator(), private val appDisplay:ApplicationDisplay, var consensusEveryNTick:Int) : TickEngine() {
+open class TxVisualizationEngine(private val instance: Mockchain, private val txGen:TransactionGenerator? = null, private val appDisplay:ApplicationDisplay) : TickEngine() {
     override fun initiate() {}
     override fun calculateTickImpl() {
         println("tick($currentTick)")
-        val generatedTransaction = txGen.next(instance, currentTick, Random())
-        if(generatedTransaction.isPresent) {
+        val generatedTransaction = txGen?.next(instance, currentTick, Random())
+        if(generatedTransaction?.isPresent == true) {
             try {
                 instance.commitToMemPool(generatedTransaction.get())
             } catch (ex: java.lang.IllegalArgumentException) {
@@ -40,11 +39,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
         }
 
         if(instance.consensus is ManualConsensusAlgorithm) {
-            if (consensusEveryNTick < 0) {
-                if (Random().nextInt(-consensusEveryNTick) == 0)
-                    instance.consensus.performConsensusRound(false)
-            } else if (currentTick % consensusEveryNTick == 0L)
-                instance.consensus.performConsensusRound(false)
+            instance.consensus.performTick(((currentTick+1)%Int.MAX_VALUE).toInt())
         }
     }
     override fun getTicksPerSecond(): Int {
@@ -147,7 +142,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
 
 
     fun recalculateTransactionDisplay() {
-        setBlocksToDisplay(instance.chain.getBlocks(), instance.memPool.getTransactionHashes().toTypedArray())
+        setBlocksToDisplay(instance.chain.getBlocks(), instance.memPool.getTransactionHashes())
     }
     private fun paintSequence(tx:Transaction, levels:Map<Transaction, Int>, alreadyPainted:MutableMap<Transaction, TransactionDisplayObject>, xOffset: Double, yCounterAtStart:Double, txIsMemPool: Boolean) : Double {
         val resolver = instance.memPool.combineWith(instance.chain)

@@ -8,6 +8,8 @@ import kotlin.math.log2
  * Implementation of a Merkle tree.
  *
  * Allows generation, partial verification and extraction of the merkle root. The later is the only part strictly required for basic blockchain behavior.
+ *
+ * IMMUTABLE -> Thread Safe
  */
 
 private val DEFAULT_ROOT_FOR_EMPTY_TREE: Hash = Hash(byteArrayOf(1))

@@ -96,7 +96,7 @@ class Transaction {
          * Creates a Transaction from the raw contents of the given byte array
          * The byte array should have been previously created using the {@link encode} method.
          */
-        fun decode(raw: ByteArray) : Transaction {
+        fun decode(raw: ByteArray, invalidateBlockId: Boolean = false) : Transaction {
             val transformer = LITypeToBytesTransformer()
             val decoder = LIbae(raw).iterator()
             val content = decoder.next()
@@ -108,7 +108,7 @@ class Transaction {
                 val type = DependencyType.values()[ordinal]
                 bDependencies.add(Dependency(TransactionHash(hash), type))
             }
-            return Transaction(content, blockId, bDependencies)
+            return Transaction(content, if(invalidateBlockId) -1 else blockId, bDependencies)
         }
     }
     /**

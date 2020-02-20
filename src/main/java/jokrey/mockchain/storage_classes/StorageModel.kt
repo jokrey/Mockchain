@@ -14,6 +14,8 @@ import kotlin.collections.LinkedHashMap
 
 /**
  * All mutating operations are cached or just done uncommitted, to be executed to the readable state on 'commit'.
+ *
+ * NOT! Thread Safe
  */
 interface StorageModel {
     //for all
@@ -22,6 +24,7 @@ interface StorageModel {
     //blocks
     fun getLatestHash(): Hash?
     fun numberOfBlocks():Int
+    fun numberOfTx(): Int
     fun highestBlockId() = numberOfBlocks()-1
     operator fun iterator(): Iterator<Block> = muteratorFrom(0)
     //transactions
@@ -38,8 +41,9 @@ interface StorageModel {
     fun add(block: Block)
     fun muteratorFrom(index: Int): BlockChainStorageIterator
     //transactions
-    operator fun set(key: TransactionHash, value: Transaction)
+    fun add(key: TransactionHash, value: Transaction)
     fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction)
+    fun replace(key: TransactionHash, newValue: Transaction)
     fun remove(oldHash: TransactionHash)
 
 
@@ -58,6 +62,8 @@ interface BlockChainStorageIterator: Iterator<Block> {
 
 /**
  * Meant to mimic the behaviour of persistent storage, however it does some additional hash verifications for debugging purposes.
+ *
+ * Additionally some things like getLatestHash may have a subtly different behaviour
  */
 class NonPersistentStorage : StorageModel {
     private val committedTXS = LinkedHashMap<TransactionHash, Transaction>()
@@ -71,6 +77,7 @@ class NonPersistentStorage : StorageModel {
 
     override fun getLatestHash(): Hash? = if(committedBLOCKS.isEmpty()) null else committedBLOCKS.last().getHeaderHash()
     override fun numberOfBlocks() = committedBLOCKS.size
+    override fun numberOfTx() = committedTXS.size
 
     override fun get(key: TransactionHash): Transaction? = committedTXS[key]
     override fun contains(key: TransactionHash) = key in committedTXS
@@ -101,7 +108,7 @@ class NonPersistentStorage : StorageModel {
         }
     }
 
-    override fun set(key: TransactionHash, value: Transaction) {
+    override fun add(key: TransactionHash, value: Transaction) {
         if(value.blockId < 0) throw IllegalStateException("attempt to persist tx with illegal block id")
         if( key in uncommittedTXS && uncommittedTXS[key]!!.blockId != value.blockId ) throw IllegalStateException("hash known")
         uncommittedTXS[key] = value
@@ -111,6 +118,9 @@ class NonPersistentStorage : StorageModel {
         if(old.blockId != newValue.blockId) throw IllegalStateException("attempting to replace with different block id")
         if(newKey in uncommittedTXS ) throw IllegalStateException("hash known") //this check might require removal in fringe cases it could still work despite this check failing
         uncommittedTXS[newKey] = newValue
+    }
+    override fun replace(key: TransactionHash, newValue: Transaction) {
+        uncommittedTXS[key] = newValue
     }
     override fun remove(oldHash: TransactionHash) { uncommittedTXS.remove(oldHash) }
 
@@ -146,6 +156,7 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
 
     private var latestHash: Hash? = null
     private var numberOfBlocks: Int = 0
+    private var numberOfTxs: Int = 0
 
     init {
         if(clean) {
@@ -156,13 +167,25 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
             }
         } else {
             levelDBStore = Iq80DBFactory.factory.open(file, Options())
-            val max = levelDBStore.maxBy {
-                if(isBlockKey(it.key)) fromBlockKey(it.key) else Int.MIN_VALUE
+            var latestBlock: Map.Entry<ByteArray, ByteArray>? = null
+            var latestBlockNumber = 0
+            var txCounter = 0
+            levelDBStore.forEach {
+                if(isBlockKey(it.key)) {
+                    val id = fromBlockKey(it.key)
+                    if(id > latestBlockNumber) {
+                        latestBlockNumber = id
+                        latestBlock = it
+                    }
+                } else { //isTxKey(it.key)
+                    txCounter++
+                }
             }
-            if (max != null) {
-                numberOfBlocks = fromBlockKey(max.key)
-                latestHash = Block(max.value).getHeaderHash()
-            }
+            val encodedLatestBlock = latestBlock?.value
+            if(encodedLatestBlock != null)
+                latestHash = Block(encodedLatestBlock).getHeaderHash()
+            numberOfBlocks = latestBlockNumber
+            numberOfTxs = txCounter
         }
 
         currentBatch = levelDBStore.createWriteBatch()
@@ -174,6 +197,7 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
 
     override fun getLatestHash(): Hash? = latestHash
     override fun numberOfBlocks() = numberOfBlocks
+    override fun numberOfTx() = numberOfTxs
 
     override fun get(key: TransactionHash): Transaction? {
         val raw = levelDBStore[toTxsKey(key)]
@@ -218,13 +242,11 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
                 tx = null
                 while(iterator.hasNext()) {
                     val next = iterator.next()
-//                    println("next = ${next.key.toList()}")
                     if(isTxsKey(next.key)) {
                         tx = Transaction.decode(next.value)
                         break
                     }
                 }
-//                println("found: $tx")
             }
         }
     }
@@ -252,16 +274,21 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
         }
     }
 
-    override fun set(key: TransactionHash, value: Transaction)  {
+    override fun add(key: TransactionHash, value: Transaction)  {
         if(value.blockId < 0) throw IllegalStateException("attempt to persist tx with illegal block id")
         currentBatch.put(toTxsKey(key), value.encode())
+        numberOfTxs++
     }
     override fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction) {
         currentBatch.delete(toTxsKey(oldKey))
         currentBatch.put(toTxsKey(newKey), newValue.encode())
     }
+    override fun replace(key: TransactionHash, newValue: Transaction) {
+        currentBatch.put(toTxsKey(key), newValue.encode())
+    }
     override fun remove(oldHash: TransactionHash) {
         currentBatch.delete(oldHash.getHash())
+        numberOfTxs++
     }
 
 

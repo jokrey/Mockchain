@@ -26,7 +26,7 @@ import kotlin.concurrent.withLock
  *
  * @author jokrey
  */
-open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: Int, val minerIdentity: ImmutableByteArray) : ConsensusAlgorithm(instance), Runnable {
+open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: Int, val minerIdentity: ByteArray) : ConsensusAlgorithm(instance), Runnable {
     /**
      * Used to query the transactions to put into the new block once the proof is finished. Will be called for every new attempt.
      */
@@ -76,7 +76,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
                 //could be cached
                     val proofToSolve = ByteArray(1 + 4 + minerIdentity.size)
                     proofToSolve[0] = if(squashRequestedWithBlockToProof) 1 else 0
-                    System.arraycopy(minerIdentity.raw, 0, proofToSolve, 5, minerIdentity.size)
+                    System.arraycopy(minerIdentity, 0, proofToSolve, 5, minerIdentity.size)
 
                 BitHelper.writeInt32(proofToSolve, 1, currentNonce)
 
@@ -119,8 +119,8 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
     }
 
     final override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
-    final override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ImmutableByteArray(proof.raw.copyOfRange(5, proof.size - Hash.length()))
-    final override fun getLocalIdentity() = minerIdentity
+    final override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(5, proof.size - Hash.length())
+    final override fun getLocalIdentity(): ByteArray = minerIdentity
     final override fun validateJustReceivedProof(receivedBlock: Block): Boolean {
         val proofToValidate = receivedBlock.proof
         val givenSolve = ByteArray(Hash.length())
@@ -129,8 +129,15 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
 
         return verifySolveAttempt(givenSolve, difficulty) && givenSolve.contentEquals(calculateSolve(receivedBlock.previousBlockHash, receivedBlock.merkleRoot, proofToSolve).raw)
     }
+
+    override fun getCreator() = SimpleProofOfWorkConsensusCreator(difficulty, minerIdentity)
 }
 
-class SimpleProofOfWorkConsensusCreator(private val difficulty: Int, private val minerIdentity: ImmutableByteArray) : ConsensusAlgorithmCreator {
+class SimpleProofOfWorkConsensusCreator(private val difficulty: Int, private val minerIdentity: ByteArray) : ConsensusAlgorithmCreator {
     override fun create(instance: Mockchain) = ProofOfWorkConsensus(instance, difficulty, minerIdentity)
+
+    override fun getEqualFreshCreator(): () -> ConsensusAlgorithmCreator = { SimpleProofOfWorkConsensusCreator(difficulty, minerIdentity) }
+    override fun createNewInstance(vararg params: String) = SimpleProofOfWorkConsensusCreator(params[0].toInt(), base64Decode(params[1]))
+    override fun getCreatorParamNames() = arrayOf("difficulty (int)", "minerIdentity (base64 array)")
+    override fun getCurrentParamContentForEqualCreation() = arrayOf(difficulty.toString(), base64Encode(minerIdentity))
 }

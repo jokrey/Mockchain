@@ -27,7 +27,7 @@ fun getRandomBlockQuerier(queriers: List<BlockQuerier>) =
 
 fun addBlockFrom(store: StorageModel, previousBlockHash: Hash?, blockTxs: Array<Transaction>) {
     for(btx in blockTxs)
-        store[btx.hash] = btx
+        store.add(btx.hash, btx)
     store.add(Block(previousBlockHash, Proof(ByteArray(0)), blockTxs.map { it.hash }.toTypedArray())) //todo - missing proof support
 }
 

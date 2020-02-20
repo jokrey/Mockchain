@@ -7,7 +7,7 @@ import java.util.*
  * A block is the container for transactions in the context of blockchain.
  * Since a block always contains the hash for its previous block the order on block is strictly defined and a number of block build a hashchain.
  *
- * IMMUTABLE
+ * IMMUTABLE -> Thread safe.
  */
 open class Block: Iterable<TransactionHash> {
     /**

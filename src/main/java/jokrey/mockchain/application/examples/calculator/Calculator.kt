@@ -1,12 +1,12 @@
 package jokrey.mockchain.application.examples.calculator
 
 import jokrey.mockchain.Mockchain
-import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.VisualizableApp
+import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -39,7 +39,7 @@ class SingleStringCalculator(verify:(Calculation) -> Boolean={true}) : MashedCal
     override fun createTxFrom(input: String): Transaction = super.createTxFrom(if(!input.contains("in")) input + "in 0" else input)
 }
 class MultiStringCalculator(numberOfStrings:Int) : MashedCalculator(numberOfStrings, maxDependencies = 1) {
-    override fun getCreatorParamNames() = arrayOf("number of initial states")
+    override fun getCreatorParamNames() = arrayOf("number of initial states (int)")
     override fun getCurrentParamContentForEqualCreation() = arrayOf(numberOfInitialStates.toString())
     override fun createNewInstance(vararg params: String) = MultiStringCalculator(params[0].toInt())
 }
@@ -50,7 +50,7 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     fun getResults() = results.toList().sortedBy { it.first }.map { it.second }
     fun getRawResults():HashMap<Int, Double> = results.clone() as HashMap<Int, Double>
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ImmutableByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val virtualResults = results.clone() as HashMap<Int, Double>
 
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
@@ -89,9 +89,8 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     }
 
 
-    override fun newBlock(instance: Mockchain, block: Block) {
-        for(txp in block) {
-            val tx = instance[txp]
+    override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
+        for(tx in newTransactions) {
             val calculation = calcFromTx(tx)
 
             if(!tryUpdateResult(results, calculation))
@@ -249,7 +248,7 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
 
 
     override fun getEqualFreshCreator(): () -> VisualizableApp = { MashedCalculator(numberOfInitialStates, verify, maxDependencies) }
-    override fun getCreatorParamNames() = arrayOf("number of initial states", "maximum dependencies in each string")
+    override fun getCreatorParamNames() = arrayOf("number of initial states (int)", "maximum dependencies in each string (int)")
     override fun getCurrentParamContentForEqualCreation() = arrayOf(numberOfInitialStates.toString(), maxDependencies.toString())
     override fun createNewInstance(vararg params: String) = MashedCalculator(params[0].toInt(), verify, params[1].toInt())
     override fun createTxFrom(input: String): Transaction {
