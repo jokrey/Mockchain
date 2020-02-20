@@ -57,8 +57,6 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     /**
      * Will verify and if valid add the received remote block to the chain.
      * If even a single transaction in the given block is determined to be invalid the entire block will be rejected and not added to the chain.
-     *
-     * TODO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
      */
     internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block, resolver: TransactionResolver): Boolean {
         val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
@@ -67,7 +65,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val proposedTransactions = receivedBlock.map { resolver[it] }.toMutableList()
         val newSquashState = removeAllRejectedTransactionsFrom(blockCreatorIdentity, proposedTransactions)
 
-        if(proposedTransactions.size != receivedBlock.size) //if even a single transaction in
+        if(proposedTransactions.size != receivedBlock.size) //if even a single transaction was rejected
             return false
 
         instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, proposedTransactions)

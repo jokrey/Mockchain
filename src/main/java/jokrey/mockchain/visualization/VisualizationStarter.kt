@@ -37,7 +37,7 @@ val availableApps = arrayOf(
     SupplyChain()
 )
 
-val defaultPair = UserAuthHelper.generateKeyPair() //todo - maybe slow
+val defaultPair = UserAuthHelper.generateKeyPair() //todo - maybe slow on some machines
 val availableConsensusAlgorithms = arrayOf(
         ManualConsensusAlgorithmCreator(),
         SimpleProofOfWorkConsensusCreator(4, byteArrayOf(1,2,3)),

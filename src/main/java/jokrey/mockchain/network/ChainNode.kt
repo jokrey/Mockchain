@@ -54,6 +54,10 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
             instance.log("received unconfirmed block = $receivedBlock")
 
+//
+//          TODO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
+//               - though note that it is only possible to penalize signed blocks(i.e. blocks in which the creator is verifiably known)
+
             val proofValid = instance.consensus.validateJustReceivedProof(receivedBlock)
             if(! proofValid) {
                 instance.log("proof invalid, rejected block = $receivedBlock")

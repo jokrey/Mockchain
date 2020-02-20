@@ -28,7 +28,7 @@ class Nockchain(app: Application,
     internal val node = ChainNode(selfLink, 10, this)
 
     /** @see P2LNode.establishConnections */
-    fun connect(vararg links: P2Link, catchup: Boolean = false) {
+    fun connect(vararg links: P2Link, catchup: Boolean = false) { //todo - implement catch up algorithm (both mem pool and previous blocks)
         node.connect(*links)
     }
     /** @see P2LNode.recursiveGarnerConnections */

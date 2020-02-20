@@ -44,9 +44,7 @@ class Chain(val app: Application,
     /**
      * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction.
      *
-     * todo - i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
-     *
-     *
+     * fix.me: i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
      */
     internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>): Boolean {
         rwLock.write {

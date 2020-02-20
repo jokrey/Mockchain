@@ -127,6 +127,8 @@ class DistributedTests {
 
         instance1.consensus.performConsensusRound(false)
 
+        sleep(1000)
+
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
         helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
     }

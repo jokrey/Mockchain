@@ -2,6 +2,7 @@ package jokrey.mockchain.visualization
 
 import jokrey.mockchain.consensus.ConsensusAlgorithm
 import jokrey.mockchain.consensus.ManualConsensusAlgorithm
+import jokrey.mockchain.consensus.ProofOfStaticStake
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
 import javax.swing.BoxLayout
@@ -18,6 +19,8 @@ import javax.swing.event.DocumentListener
 fun getAppropriateConsensusControlPanel(frame: VisualizationFrame, consensus: ConsensusAlgorithm) :JPanel? {
     if(consensus is ManualConsensusAlgorithm) {
         return getManualConsensusControlPanel(frame, consensus)
+    } else if(consensus is ProofOfStaticStake) {
+//        return todo
     }
     return null
 }
