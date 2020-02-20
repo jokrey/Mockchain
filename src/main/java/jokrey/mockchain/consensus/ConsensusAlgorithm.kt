@@ -117,6 +117,9 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         return newSquashState
     }
 
+
+    //TODO - is it reasonable to remove the transaction from the mem pool right away?
+    //     - the app should have a say in that, no?
     private fun handleRejection(proposed: List<Transaction>, rejected: List<Pair<Transaction, RejectionReason>>) {
         for ((rejectedTransaction, reason) in rejected) {
             if(rejectedTransaction !in proposed) {

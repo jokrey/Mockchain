@@ -1,15 +1,13 @@
 package jokrey.mockchain.visualization
 
-import jokrey.mockchain.consensus.ConsensusAlgorithm
-import jokrey.mockchain.consensus.ManualConsensusAlgorithm
-import jokrey.mockchain.consensus.ProofOfStaticStake
+import jokrey.mockchain.consensus.*
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
+import java.lang.Exception
 import javax.swing.BoxLayout
 import javax.swing.JButton
+import javax.swing.JCheckBox
 import javax.swing.JPanel
-import javax.swing.event.DocumentEvent
-import javax.swing.event.DocumentListener
 
 /**
  *
@@ -20,9 +18,59 @@ fun getAppropriateConsensusControlPanel(frame: VisualizationFrame, consensus: Co
     if(consensus is ManualConsensusAlgorithm) {
         return getManualConsensusControlPanel(frame, consensus)
     } else if(consensus is ProofOfStaticStake) {
-//        return todo
+        return getProofOfStaticStakeControlPanel(frame, consensus)
+    } else if(consensus is ProofOfWorkConsensus) {
+        return getProofOfWorkControlPanel(frame, consensus)
     }
     return null
+}
+
+fun getProofOfWorkControlPanel(frame: VisualizationFrame, consensus: ProofOfWorkConsensus): JPanel {
+    val panel = JPanel()
+
+    val difficultyInputField = LabeledInputField("difficulty ([1-20]): ", 3)
+    difficultyInputField.toolTipText = "enter difficulty ( int between 1 and 20 ) - HAS TO BE THE SAME FOR ALL NODES"
+    difficultyInputField.addTextChangeListener {
+        if(difficultyInputField.getText().isNotEmpty())
+            consensus.difficulty = difficultyInputField.getText().toInt()
+    }
+
+    val minerIdentityInputField = LabeledInputField("miner identity (base64): ", 5)
+    minerIdentityInputField.toolTipText = "enter miner identity as a base64 encoded string"
+    minerIdentityInputField.addTextChangeListener {
+        try {
+            consensus.minerIdentity = base64Decode(minerIdentityInputField.getText())
+            minerIdentityInputField.setLabelText("miner identity (base64)")
+        } catch(e: Exception) {
+            minerIdentityInputField.setLabelText("miner identity (base64(!))")
+        }
+    }
+
+    val requestSquashCheckbox = JCheckBox("request squash")
+    requestSquashCheckbox.addItemListener {
+        consensus.requestSquash = requestSquashCheckbox.isSelected
+    }
+
+    panel.layout = BoxLayout(panel, BoxLayout.X_AXIS)
+    panel.add(difficultyInputField)
+    panel.add(minerIdentityInputField)
+    panel.add(requestSquashCheckbox)
+
+    difficultyInputField.setText(consensus.difficulty.toString())
+    minerIdentityInputField.setText(base64Encode(consensus.minerIdentity))
+    requestSquashCheckbox.isSelected = consensus.requestSquash
+
+    //todo - information such as: currently staged txs, current nonce
+
+    return panel
+}
+
+fun getProofOfStaticStakeControlPanel(frame: VisualizationFrame, consensus: ProofOfStaticStake): JPanel {
+    val panel = JPanel()
+
+    //todo - displays of the current state of the consensus algorithm - like who's turn it is, etc..
+
+    return panel
 }
 
 fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualConsensusAlgorithm): JPanel {
@@ -89,27 +137,17 @@ fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualC
 
     consensusEveryNTicksInputField.setDocument(IntegersOnlyDocument())
     consensusEveryNTicksInputField.setText(consensus.consensusEveryNTick.toString())
-    consensusEveryNTicksInputField.getDocument().addDocumentListener(object: DocumentListener {
-        override fun changedUpdate(e: DocumentEvent?) = change()
-        override fun insertUpdate(e: DocumentEvent?) = change()
-        override fun removeUpdate(e: DocumentEvent?) = change()
-        fun change() {
-            if(consensusEveryNTicksInputField.getText().isNotEmpty())
-                consensus.consensusEveryNTick = Integer.parseInt(consensusEveryNTicksInputField.getText())
-        }
-    })
+    consensusEveryNTicksInputField.addTextChangeListener {
+        if(consensusEveryNTicksInputField.getText().isNotEmpty())
+            consensus.consensusEveryNTick = Integer.parseInt(consensusEveryNTicksInputField.getText())
+    }
 
     squashEveryNConsensusRoundsInputField.setDocument(IntegersOnlyDocument())
     squashEveryNConsensusRoundsInputField.setText(consensus.squashEveryNRounds.toString())
-    squashEveryNConsensusRoundsInputField.getDocument().addDocumentListener(object: DocumentListener {
-        override fun changedUpdate(e: DocumentEvent?) = change()
-        override fun insertUpdate(e: DocumentEvent?) = change()
-        override fun removeUpdate(e: DocumentEvent?) = change()
-        fun change() {
-            if(squashEveryNConsensusRoundsInputField.getText().isNotEmpty())
-                consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
-        }
-    })
+    squashEveryNConsensusRoundsInputField.addTextChangeListener {
+        if(squashEveryNConsensusRoundsInputField.getText().isNotEmpty())
+            consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
+    }
 
     val panel = JPanel()
     panel.layout = BoxLayout(panel, BoxLayout.X_AXIS)

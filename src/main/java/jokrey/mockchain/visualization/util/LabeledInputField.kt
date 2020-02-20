@@ -11,7 +11,7 @@ import javax.swing.event.DocumentListener
 import javax.swing.text.Document
 
 class LabeledInputField(labelText: String, tf_columns: Int) : JPanel() {
-    private val l: JLabel?
+    private val l: JLabel
     private val tf: JTextField
 
     init {
@@ -24,9 +24,13 @@ class LabeledInputField(labelText: String, tf_columns: Int) : JPanel() {
 
     override fun setFont(arg0: Font) {
         super.setFont(arg0)
-        if (l == null) return
+        if(l == null) return //I know kotlin thinks this is bs, but it is not. It is required since setFont is called before l is initialized
         l.font = arg0
         tf.font = arg0
+    }
+
+    fun setLabelText(s: String) {
+        l.text = s
     }
 
     fun setText(text: String?) {
@@ -58,6 +62,14 @@ class LabeledInputField(labelText: String, tf_columns: Int) : JPanel() {
             override fun changedUpdate(arg0: DocumentEvent) {
                 al.actionPerformed(null)
             }
+        })
+    }
+
+    fun addTextChangeListener(function: () -> Unit) {
+        getDocument().addDocumentListener(object: DocumentListener {
+            override fun changedUpdate(e: DocumentEvent?) = function()
+            override fun insertUpdate(e: DocumentEvent?) = function()
+            override fun removeUpdate(e: DocumentEvent?) = function()
         })
     }
 }

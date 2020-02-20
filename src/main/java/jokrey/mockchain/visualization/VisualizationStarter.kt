@@ -53,10 +53,10 @@ fun main() {
 //    startMockVisualizationOf(Currency()) //works great, always
 //    startMockVisualizationOf(SupplyChain(55, 5)) //works great, always
 
-//    buildNewInstanceConfiguration()
+    buildNewInstanceConfiguration()
 
-    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45221), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
-    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45222), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45221), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45222), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
 }
 
 fun startApplicationChooserOnly(current: VisualizableApp? = null, frame: Component? = null) {

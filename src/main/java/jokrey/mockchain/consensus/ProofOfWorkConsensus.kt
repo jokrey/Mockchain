@@ -26,20 +26,18 @@ import kotlin.concurrent.withLock
  *
  * @author jokrey
  */
-open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: Int, val minerIdentity: ByteArray) : ConsensusAlgorithm(instance), Runnable {
+open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var minerIdentity: ByteArray, var requestSquash: Boolean = false) : ConsensusAlgorithm(instance), Runnable {
     /**
      * Used to query the transactions to put into the new block once the proof is finished. Will be called for every new attempt.
      */
     open fun selectTransactions() = instance.memPool.getTransactions().toMutableList()
-    /**
-     * Whether a squash is requested with the new block.
-     */
-    open fun requestSquash() = false
-    /**
-     * Allows recalculation of difficulty. Result has to be written into the field.
-     */
-    open fun recalculateDifficulty() {}
 
+    /**
+     * Can be overriden to recalculate difficulty and whether to request a squash
+     */
+    override fun notifyNewLatestBlockPersisted(newBlock: Block) {
+        reselectTxsToBuild()
+    }
 
     private val lock = ReentrantLock()
     private val condition = lock.newCondition()
@@ -49,7 +47,6 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
     private var latestBlockHash: Hash? = null
     private var selectedTxs : List<Transaction> = emptyList()
     private var merkleRootOfSelectedTxs : Hash = Hash(ByteArray(Hash.length()))
-    private var squashRequestedWithBlockToProof = false
     private var currentNonce = 0
     private fun reselectTxsToBuild() {
         lock.withLock {
@@ -57,10 +54,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
             selectedTxs = selectTransactions()
             newSquashStateInCaseOfApproval = removeAllRejectedTransactionsFrom(minerIdentity, selectedTxs as MutableList<Transaction>) //VERY IMPORTANT LINE
             merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
-            squashRequestedWithBlockToProof = requestSquash()
             currentNonce = 0
-
-            recalculateDifficulty()
 
             condition.signal()
         }
@@ -75,7 +69,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
 
                 //could be cached
                     val proofToSolve = ByteArray(1 + 4 + minerIdentity.size)
-                    proofToSolve[0] = if(squashRequestedWithBlockToProof) 1 else 0
+                    proofToSolve[0] = if(requestSquash) 1 else 0
                     System.arraycopy(minerIdentity, 0, proofToSolve, 5, minerIdentity.size)
 
                 BitHelper.writeInt32(proofToSolve, 1, currentNonce)
@@ -87,7 +81,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
                     val proofBuilder = proofToSolve + solve.raw
                     val proof = Proof(proofBuilder)
 
-                    createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, squashRequestedWithBlockToProof, merkleRootOfSelectedTxs)
+                    createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, requestSquash, merkleRootOfSelectedTxs)
 
                     reselectTxsToBuild()
                 } else
@@ -101,15 +95,13 @@ open class ProofOfWorkConsensus(instance: Mockchain, protected var difficulty: I
 
 
     private fun verifySolveAttempt(solve: ByteArray, difficulty: Int): Boolean {
+        //todo - more complex difficulty interpretation
         for(i in 0..difficulty)
             if(solve[i] != 0.toByte())
                 return false
         return true
     }
 
-    final override fun notifyNewLatestBlockPersisted(newBlock: Block) {
-        reselectTxsToBuild()
-    }
     final override fun notifyNewTransactionInMemPool(newTx: Transaction) {
         lock.withLock {
             if(selectedTxs.size < 8) {
