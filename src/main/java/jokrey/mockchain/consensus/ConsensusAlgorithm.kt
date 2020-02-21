@@ -4,8 +4,6 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
-import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.locks.ReentrantLock
 
 /**
  * Will propose blocks to the chain. Either based on internal rules on its own, or upon an external command.
@@ -48,9 +46,9 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val selectedVerifiedTransactionHashes = selectedVerifiedTransactions.map { it.hash }.toMutableList()
 
         val newBlock = Block(latestHash, proof, merkleRoot, selectedVerifiedTransactionHashes.toTypedArray())
-        val newBlockAdded = instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
+        val newBlockId = instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
 
-        if(newBlockAdded)
+        if(newBlockId != -1)
             instance.notifyNewLocalBlockAdded(newBlock)
     }
 
@@ -58,7 +56,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
      * Will verify and if valid add the received remote block to the chain.
      * If even a single transaction in the given block is determined to be invalid the entire block will be rejected and not added to the chain.
      */
-    internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block, resolver: TransactionResolver): Boolean {
+    internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block, resolver: TransactionResolver): Int {
         val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedBlock.proof)
 
@@ -66,11 +64,9 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val newSquashState = removeAllRejectedTransactionsFrom(blockCreatorIdentity, proposedTransactions)
 
         if(proposedTransactions.size != receivedBlock.size) //if even a single transaction was rejected
-            return false
+            return -1
 
-        instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, proposedTransactions)
-
-        return true
+        return instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, proposedTransactions)
     }
 
     internal fun runConsensusLoopInNewThread() {
@@ -82,7 +78,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     internal abstract fun notifyNewLatestBlockPersisted(newBlock: Block)
     internal abstract fun notifyNewTransactionInMemPool(newTx: Transaction)
 
-    internal abstract fun validateJustReceivedProof(receivedBlock: Block): Boolean
+    internal abstract fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean
 
     protected abstract fun extractRequestSquashFromProof(proof: Proof): Boolean
     protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray

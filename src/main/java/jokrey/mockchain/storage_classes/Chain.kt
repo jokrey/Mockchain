@@ -45,16 +45,17 @@ class Chain(val app: Application,
      * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction.
      *
      * fix.me: i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
+     *
+     * returns new block id
      */
-    internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>): Boolean {
+    internal fun squashAndAppendVerifiedNewBlock(squash: Boolean, newSquashState: SquashAlgorithmState?, relayBlock: Block, proposed: List<Transaction>): Int {
         rwLock.write {
             var latestHash = getLatestHash()
             if (latestHash != relayBlock.previousBlockHash)
                 //CHECK HAS TO BE DONE - IT IS PART OF ENSURING THREAD SAFETY AS DETAILED ABOVE
                 //check has to be done up here, squash may change latest hash (in some storage impls)
                 throw RejectedExecutionException("latestHash != relayBlock.previousBlockHash")
-            if(proposed.map { it.hash }.toList() != relayBlock.toList())
-                throw RejectedExecutionException("proposed transactions in wrong order")
+            if(proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
             //change app state based on added transactions
             app.newBlock(instance, relayBlock, proposed)
@@ -80,11 +81,13 @@ class Chain(val app: Application,
             //persist transactions to chain (i.e. bundle and add as block[omitted dependenciesFrom prototype]):
 //        if (proposedTransactions.isNotEmpty()) {
             AverageCallTimeMarker.mark_call_start("persist new block")
+            val blockId = store.highestBlockId() + 1
+
             val newlyAdded = LinkedList<TransactionHash>()
             for (tx in proposedTransactions) {
                 val txp = tx.hash
 
-                store.add(txp, tx.withBlockId(store.highestBlockId() + 1))
+                store.add(txp, tx.withBlockId(blockId))
                 newlyAdded.add(txp)
             }
             val newBlock = Block(latestHash, relayBlock.proof, newlyAdded)
@@ -95,12 +98,13 @@ class Chain(val app: Application,
             store.commit()
 
             instance.consensus.notifyNewLatestBlockPersisted(newBlock)
-            return true
+
+            return blockId
 //        } else {
 //            store.commit()
 //
 //            LOG.fine("No transactions would be in new block after verification and squash - NOT creating empty block")
-//            return false
+//            return -1
 //        }
         }
     }

@@ -38,6 +38,8 @@ open class Hash : ImmutableByteArray {
 
     companion object {
         fun length() : Int = 32
+        fun create(from : ByteArray) = Hash(from, false)
+        fun raw(from : ByteArray) = Hash(from, true)
     }
 }
 

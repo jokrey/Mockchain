@@ -113,13 +113,12 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
     final override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
     final override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(5, proof.size - Hash.length())
     final override fun getLocalIdentity(): ByteArray = minerIdentity
-    final override fun validateJustReceivedProof(receivedBlock: Block): Boolean {
-        val proofToValidate = receivedBlock.proof
+    final override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean {
         val givenSolve = ByteArray(Hash.length())
-        System.arraycopy(proofToValidate.raw, proofToValidate.raw.size-givenSolve.size, givenSolve, 0, givenSolve.size)
-        val proofToSolve = proofToValidate.raw.copyOfRange(0, proofToValidate.size - givenSolve.size)
+        System.arraycopy(proof.raw, proof.raw.size-givenSolve.size, givenSolve, 0, givenSolve.size)
+        val proofToSolve = proof.raw.copyOfRange(0, proof.size - givenSolve.size)
 
-        return verifySolveAttempt(givenSolve, difficulty) && givenSolve.contentEquals(calculateSolve(receivedBlock.previousBlockHash, receivedBlock.merkleRoot, proofToSolve).raw)
+        return verifySolveAttempt(givenSolve, difficulty) && givenSolve.contentEquals(calculateSolve(previousBlockHash, merkleRoot, proofToSolve).raw)
     }
 
     override fun getCreator() = SimpleProofOfWorkConsensusCreator(difficulty, minerIdentity)

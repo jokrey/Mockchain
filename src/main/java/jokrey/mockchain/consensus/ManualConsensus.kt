@@ -2,6 +2,7 @@ package jokrey.mockchain.consensus
 
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.Block
+import jokrey.mockchain.storage_classes.Hash
 import jokrey.mockchain.storage_classes.Proof
 import jokrey.mockchain.storage_classes.Transaction
 import java.util.*
@@ -40,8 +41,8 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
     override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
     override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ByteArray(0)
     override fun getLocalIdentity() = ByteArray(0)
-    override fun validateJustReceivedProof(receivedBlock: Block)
-            = receivedBlock.proof.size == 1 && (receivedBlock.proof[0] == 0.toByte() || receivedBlock.proof[0] == 1.toByte())
+    override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash)
+            = proof.size == 1 && (proof[0] == 0.toByte() || proof[0] == 1.toByte())
 
     override fun run() {}
     override fun notifyNewLatestBlockPersisted(newBlock: Block) {}

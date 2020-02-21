@@ -99,9 +99,8 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
     override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(1, proof.size - UserAuthHelper.signatureLength())
     override fun getLocalIdentity(): ByteArray = ownKeyPair.public.encoded
-    override fun validateJustReceivedProof(receivedBlock: Block): Boolean {
-        val proofToValidate = receivedBlock.proof
-        val allegedIdentity = extractBlockCreatorIdentityFromProof(proofToValidate)
+    override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean {
+        val allegedIdentity = extractBlockCreatorIdentityFromProof(proof)
 
         val receivedIdentityIndex = findIdentityIndex(allegedIdentity)
         if(receivedIdentityIndex == -1) return false
@@ -112,8 +111,8 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
         }
 
         val signature = ByteArray(UserAuthHelper.signatureLength())
-        System.arraycopy(proofToValidate.raw, proofToValidate.raw.size-signature.size, signature, 0, signature.size)
-        val messageToSign = calculateMessageToSign(receivedBlock.previousBlockHash, receivedBlock.merkleRoot, proofToValidate.raw.copyOfRange(0, proofToValidate.size - signature.size))
+        System.arraycopy(proof.raw, proof.raw.size-signature.size, signature, 0, signature.size)
+        val messageToSign = calculateMessageToSign(previousBlockHash, merkleRoot, proof.raw.copyOfRange(0, proof.size - signature.size))
 
         return UserAuthHelper.verify(messageToSign, signature, allegedIdentity)
     }
