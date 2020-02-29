@@ -1,12 +1,11 @@
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.Nockchain
-import jokrey.mockchain.application.Application
 import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
+import jokrey.mockchain.network.findForkIndex
 import jokrey.mockchain.squash.BuildUponSquashHandler
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
-import jokrey.mockchain.storage_classes.Dependency
-import jokrey.mockchain.storage_classes.DependencyType
-import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.util.EmptyApplication
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
@@ -131,6 +130,68 @@ class DistributedTests {
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
         helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
+    }
+
+
+
+
+
+
+    @Test
+    fun testForkPointFinder() {
+        val blocks = ArrayList<Block>(10)
+        for(i in 0 until 10)
+            blocks.add(Block(if(i==0) null else blocks[i-1].getHeaderHash(), Proof(ByteArray(1)), emptyArray()))
+
+        run {
+            val instance1 = Mockchain(EmptyApplication())
+            val instance2 = Mockchain(EmptyApplication())
+
+            putBlocks(instance1, blocks, 5)
+            putBlocks(instance2, blocks)
+
+            val forkPoint = findForkIndex(instance1.chain, instance1.chain.blockCount(), instance2.chain.getBlocks().map { it.getHeaderHash() }, 0, instance2.chain.blockCount())
+            assertForkIndexCorrect(4, forkPoint, instance1, instance2)
+        }
+
+        run {
+            val instance1 = Mockchain(EmptyApplication())
+            val instance2 = Mockchain(EmptyApplication())
+
+            putBlocks(instance1, blocks)
+            putBlocks(instance2, blocks)
+
+            val forkIndex = findForkIndex(instance1.chain, instance1.chain.blockCount(), instance2.chain.getBlocks().map { it.getHeaderHash() }, 0, instance2.chain.blockCount())
+            assertForkIndexCorrect(blocks.size-1, forkIndex, instance1, instance2)
+        }
+
+        run {
+            val instance1 = Mockchain(EmptyApplication())
+            val instance2 = Mockchain(EmptyApplication())
+
+            putBlocks(instance1, blocks, 5)
+            for(i in 0..2)
+                instance1.chain.store.add(Block(instance1.chain.getLatestHash(), Proof(ByteArray(0)), arrayOf(TransactionHash(ByteArray(12) {it.toByte()}))))
+            putBlocks(instance2, blocks)
+
+            val forkIndex = findForkIndex(instance1.chain, instance1.chain.blockCount(), instance2.chain.getBlocks().map { it.getHeaderHash() }, 0, instance2.chain.blockCount())
+            assertForkIndexCorrect(4, forkIndex, instance1, instance2)
+        }
+    }
+
+    private fun putBlocks(instance: Mockchain, blocks: List<Block>, stopWithSize: Int = (blocks.size)) {
+        for(i in 0 until stopWithSize) instance.chain.store.add(blocks[i])
+        instance.chain.store.commit()
+    }
+
+    private fun assertForkIndexCorrect(expectedForkIndex: Int, forkPointIn1: Int, instance1: Mockchain, instance2: Mockchain) {
+        assertEquals(expectedForkIndex, forkPointIn1)
+
+        val hashes1 = instance1.chain.getBlocks().map { it.getHeaderHash() }
+        val hashes2 = instance2.chain.getBlocks().map { it.getHeaderHash() }
+
+        assertEquals(hashes1[forkPointIn1], hashes2[forkPointIn1])
+        assertTrue(forkPointIn1 == hashes1.size-1 || hashes1[forkPointIn1+1] != hashes2[forkPointIn1])
     }
 }
 

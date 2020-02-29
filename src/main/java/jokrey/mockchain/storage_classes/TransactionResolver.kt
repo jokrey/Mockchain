@@ -18,7 +18,7 @@ interface TransactionResolver {
     /** Returns whether the given hash can be queried. */
     operator fun contains(hash: TransactionHash): Boolean
 
-
+    /** first the algorithm attempts to query from this resolver, if and only if that fails the second, given resolver is queried */
     fun combineWith(other: TransactionResolver): TransactionResolver {
         val original = this
         return object : TransactionResolver {

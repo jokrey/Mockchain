@@ -132,7 +132,7 @@ class Transaction {
  * IMMUTABLE
  */
 class TransactionHash : Hash {
-    constructor(from: ByteArray) : super(from)
-    constructor(from_tx: Transaction) : super(from_tx.content)
-    constructor(raw: Hash) : super(raw.getHash(), true)
+    constructor(from: ByteArray, isRaw: Boolean = false) : super(from, isRaw)
+    constructor(from_tx: Transaction) : this(from_tx.content, false)
+    constructor(raw: Hash) : this(raw.getHash(), true)
 }

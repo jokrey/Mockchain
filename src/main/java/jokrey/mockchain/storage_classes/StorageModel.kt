@@ -31,6 +31,8 @@ interface StorageModel {
     operator fun get(key: TransactionHash): Transaction?
     operator fun contains(key: TransactionHash): Boolean
     fun getBlockIdFor(key: TransactionHash) : Int?
+    fun queryBlockHash(id: Int): Hash
+    fun queryBlock(id: Int): Block
     /** This function can be slow as it is only used on a re squash after a chain is restarted */
     fun getAllPersistedTransactionWithDependenciesOrThatAreDependedUpon(): Set<Transaction>
     fun txIterator(): Iterator<Transaction>
@@ -49,6 +51,7 @@ interface StorageModel {
 
     //for all
     fun commit()
+    fun cancelUncommittedChanges()
 
     fun addCommittedChangeListener(changeOccurredCallback: () -> Unit)
     fun fireChangeCommitted()
@@ -82,6 +85,8 @@ class NonPersistentStorage : StorageModel {
     override fun get(key: TransactionHash): Transaction? = committedTXS[key]
     override fun contains(key: TransactionHash) = key in committedTXS
     override fun getBlockIdFor(key: TransactionHash) = committedTXS[key]?.blockId
+    override fun queryBlockHash(id: Int): Hash = committedBLOCKS[id].getHeaderHash()
+    override fun queryBlock(id: Int) = committedBLOCKS[id]
 
     override fun getAllPersistedTransactionWithDependenciesOrThatAreDependedUpon(): Set<Transaction> {
         val set = HashSet<Transaction>()
@@ -136,6 +141,12 @@ class NonPersistentStorage : StorageModel {
 
         fireChangeCommitted()
     }
+    override fun cancelUncommittedChanges() {
+        uncommittedTXS.clear()
+        uncommittedTXS.putAll(committedTXS)
+        uncommittedBLOCKS.clear()
+        uncommittedBLOCKS.addAll(committedBLOCKS)
+    }
 
     private val changeOccurredCallbacks = LinkedList<() -> Unit>()
     override fun addCommittedChangeListener(changeOccurredCallback: () -> Unit) {
@@ -152,11 +163,15 @@ class NonPersistentStorage : StorageModel {
 
 class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     private val levelDBStore: DB
-    private var currentBatch: WriteBatch
 
     private var latestHash: Hash? = null
     private var numberOfBlocks: Int = 0
     private var numberOfTxs: Int = 0
+
+    private var currentBatch: WriteBatch
+    private var latestHash_uncommitted: Hash? = null
+    private var numberOfBlocks_uncommitted: Int = 0
+    private var numberOfTxs_uncommitted: Int = 0
 
     init {
         if(clean) {
@@ -183,11 +198,15 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
             }
             val encodedLatestBlock = latestBlock?.value
             if(encodedLatestBlock != null)
-                latestHash = Block(encodedLatestBlock).getHeaderHash()
-            numberOfBlocks = latestBlockNumber
-            numberOfTxs = txCounter
+                latestHash_uncommitted = Block(encodedLatestBlock).getHeaderHash()
+            numberOfBlocks_uncommitted = latestBlockNumber
+            numberOfTxs_uncommitted = txCounter
         }
 
+
+        latestHash = latestHash_uncommitted
+        numberOfBlocks = numberOfBlocks_uncommitted
+        numberOfTxs = numberOfTxs_uncommitted
         currentBatch = levelDBStore.createWriteBatch()
     }
 
@@ -204,7 +223,9 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
         return if(raw == null) null else Transaction.decode(raw)
     }
     override fun contains(key: TransactionHash) = levelDBStore.get(toTxsKey(key)) != null
-    override fun getBlockIdFor(key: TransactionHash) = get(key)?.blockId
+    override fun getBlockIdFor(key: TransactionHash) = get(key)?.blockId //todo - decoding the entire transaction here is inefficient, especially for large tx
+    override fun queryBlockHash(id: Int) = Block(levelDBStore[toBlockKey(id)]).getHeaderHash() //todo - decoding the entire block here is inefficient, especially for large blocks
+    override fun queryBlock(id: Int) = Block(levelDBStore[toBlockKey(id)])
 
     override fun getAllPersistedTransactionWithDependenciesOrThatAreDependedUpon(): Set<Transaction> {
         val set = HashSet<Transaction>()
@@ -253,14 +274,14 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
 
 
     override fun add(block: Block) {
-        currentBatch.put(toBlockKey(numberOfBlocks), block.encode())
-        numberOfBlocks++
-        latestHash = block.getHeaderHash()
+        currentBatch.put(toBlockKey(numberOfBlocks_uncommitted), block.encode())
+        numberOfBlocks_uncommitted++
+        latestHash_uncommitted = block.getHeaderHash()
     }
     override fun muteratorFrom(index: Int): BlockChainStorageIterator {
         var iterator = index-1
         return object : BlockChainStorageIterator {
-            override fun hasNext() = iterator < numberOfBlocks-1
+            override fun hasNext() = iterator < numberOfBlocks_uncommitted-1
             override fun next(): Block {
                 iterator++
                 val blockRaw = levelDBStore[toBlockKey(iterator)]
@@ -268,8 +289,8 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
             }
             override fun set(element: Block) {
                 currentBatch.put(toBlockKey(iterator), element.encode())
-                if(iterator == numberOfBlocks-1)
-                    latestHash = element.getHeaderHash() // this is ok, because unless the application crashes latestHash will become permanent here
+                if(iterator == numberOfBlocks_uncommitted-1)
+                    latestHash_uncommitted = element.getHeaderHash() // this is ok, because unless the application crashes latestHash will become permanent here
             }
         }
     }
@@ -277,7 +298,7 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     override fun add(key: TransactionHash, value: Transaction)  {
         if(value.blockId < 0) throw IllegalStateException("attempt to persist tx with illegal block id")
         currentBatch.put(toTxsKey(key), value.encode())
-        numberOfTxs++
+        numberOfTxs_uncommitted++
     }
     override fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction) {
         currentBatch.delete(toTxsKey(oldKey))
@@ -288,16 +309,26 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     }
     override fun remove(oldHash: TransactionHash) {
         currentBatch.delete(oldHash.getHash())
-        numberOfTxs++
+        numberOfTxs_uncommitted++
     }
 
 
 
     override fun commit() {
+        latestHash = latestHash_uncommitted
+        numberOfBlocks = numberOfBlocks_uncommitted
+        numberOfTxs = numberOfTxs_uncommitted
         levelDBStore.write(currentBatch)
         currentBatch = levelDBStore.createWriteBatch()
 
         fireChangeCommitted()
+    }
+
+    override fun cancelUncommittedChanges() {
+        latestHash_uncommitted = latestHash
+        numberOfBlocks_uncommitted = numberOfBlocks
+        numberOfTxs_uncommitted = numberOfTxs
+        currentBatch = levelDBStore.createWriteBatch()
     }
 
     private val changeOccurredCallbacks = LinkedList<() -> Unit>()

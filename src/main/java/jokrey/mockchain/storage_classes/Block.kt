@@ -44,7 +44,7 @@ open class Block: Iterable<TransactionHash> {
         merkleRoot = Hash(decoder.next(), true)
         proof = Proof(decoder.next())
         txs = if(decoder.hasNext())
-            decoder.next(-1).map { TransactionHash(Hash(it, true)) }.toTypedArray()
+            decoder.next(-1).map { TransactionHash(it, true) }.toTypedArray()
         else
             emptyArray()
     }

@@ -309,6 +309,15 @@ class Chain(val app: Application,
             aHash in store
 //        }
 
+    fun queryBlockHash(id: Int) =
+//        rwLock.read {
+            store.queryBlockHash(id)
+//        }
+    fun queryBlock(id: Int): Block =
+//        rwLock.read {
+            store.queryBlock(id)
+//        }
+
     /**
      * Loads and returns all blocks currently stored in the chain, should only be used on small blockchains.
      */
