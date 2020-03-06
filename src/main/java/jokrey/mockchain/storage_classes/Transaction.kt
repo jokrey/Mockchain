@@ -59,11 +59,12 @@ class Transaction {
 
 
     /**
-     * Copies the transaction only mutating the blockId.
+     * Copies the transaction only mutating the blockId. If the blockId is already correct this transaction is returned(no copy occurs)
      * Used by the chain when persisting the transaction, should not be used anywhere else.
      */
     fun withBlockId(blockId: Int): Transaction {
-        if(this.blockId >= 0) throw IllegalStateException("attempting to mutate valid block id(${this.blockId} is valid)")
+        if(this.blockId == blockId) return this
+//        if(this.blockId >= 0) throw IllegalStateException("attempting to mutate valid block id(${this.blockId} is valid)")
         return Transaction(content, blockId, bDependencies, hash)
     }
     /**

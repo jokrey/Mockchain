@@ -60,6 +60,8 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
 
     //will not return before notifyNewLatestBlockPersisted - which resets the parameters
     private fun proposeBlock() {
+        if(isPaused) return
+
         val selectedTxs = instance.memPool.getTransactions().toMutableList()
         if(selectedTxs.isEmpty()) return //todo - should this be done differently? - this leads to multiple parties instantly proposing when the new tx is finally available to the mem pool
 
@@ -116,6 +118,7 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
 
         return UserAuthHelper.verify(messageToSign, signature, allegedIdentity)
     }
+    override fun allowFork(forkIndex: Int, ownBlockHeight: Int, remoteBlockHeight: Int) = true
 
     override fun getCreator() = ProofOfStaticStakeConsensusCreator(fixedBlockIntervalMs, preApprovedIdentitiesPKs, ownKeyPair)
 }

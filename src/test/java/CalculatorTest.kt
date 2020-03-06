@@ -88,7 +88,7 @@ class CalculatorTest {
 
             assertEquals(definiteState, app.exhaustiveStateDescriptor())
 
-            val freshCompareAppAfter = app.getEqualFreshCreator()() as MashedCalculator
+            val freshCompareAppAfter = app.newEqualInstance() as MashedCalculator
             instance.chain.applyReplayTo(freshCompareAppAfter)
 
             assertEquals(result, freshCompareAppAfter.getResults()[0])

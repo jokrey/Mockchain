@@ -33,7 +33,7 @@ class QualityOfMinizationTest {
             var txI = 0
             val random = Random(i.toLong())
 
-            val app = source.getEqualFreshCreator()()
+            val app = source.newEqualInstance()
             val instance = Mockchain(app)
             instance.consensus as ManualConsensusAlgorithm
             while(instance.chain.persistedTxCount() < numberOfTxToGenerate) {

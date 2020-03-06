@@ -17,4 +17,5 @@ interface VisualizableApp : Application, ApplicationDisplay, TransactionGenerato
 
     override fun getEqualFreshCreator() : ()->VisualizableApp
     override fun createNewInstance(vararg params: String) : VisualizableApp
+    override fun newEqualInstance(): VisualizableApp = getEqualFreshCreator()()
 }

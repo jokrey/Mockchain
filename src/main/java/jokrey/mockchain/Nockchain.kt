@@ -4,10 +4,7 @@ import jokrey.mockchain.application.Application
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.network.ChainNode
-import jokrey.mockchain.storage_classes.Block
-import jokrey.mockchain.storage_classes.NonPersistentStorage
-import jokrey.mockchain.storage_classes.StorageModel
-import jokrey.mockchain.storage_classes.Transaction
+import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
 
@@ -25,6 +22,7 @@ class Nockchain(app: Application,
                 val selfLink: P2Link,
                 store: StorageModel = NonPersistentStorage(),
                 consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.bytesRepresentation)) : Mockchain(app, store, consensus) {
+    val blockRecorder = BlockRecorder(this)
     internal val node = ChainNode(selfLink, 10, this)
 
     /** @see P2LNode.establishConnections */
@@ -46,11 +44,29 @@ class Nockchain(app: Application,
     override fun notifyNewLocalBlockAdded(block: Block) {
         super.notifyNewLocalBlockAdded(block)
         node.relayValidBlock(block)
+
+        log("nockchain - new local block added = $block")
     }
     fun notifyNewRemoteBlockAdded(block: Block) {
         super.notifyNewLocalBlockAdded(block)
+
+        log("nockchain - new remote block added = $block")
     }
 
+
+    /**
+     * Pauses: consensus algorithm, chain node block receival(recorded)
+     */
+    fun pauseAndRecord() {
+        consensus.pause()
+        node.modeRecordNewBlocks()
+    }
+    fun resume() {
+        blockRecorder.applyRecordedBlocks()
+
+        consensus.resume()
+        node.modeAllowNewBlocks()
+    }
 
     override fun log(s: String) {
         System.err.println("$selfLink - $s")

@@ -32,13 +32,13 @@ val LOG = Logger.getLogger("Chain")
  *    It is persisted. Now the other(local) enters. The previous hash of that block is now different to the new latest hash and the block is rejected as a whole as 'out of chain order'.
  */
 class Chain(val app: Application,
-            private val instance: Mockchain,
+            internal val instance: Mockchain,
             internal val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
     val rwLock = ReentrantReadWriteLock()
     private var priorSquashState: SquashAlgorithmState? = null
-    internal fun squashVerify(proposed: List<Transaction>): SquashAlgorithmState {
+    internal fun squashVerify(proposed: List<Transaction>, previousSquashState: SquashAlgorithmState? = priorSquashState): SquashAlgorithmState {
         return jokrey.mockchain.squash.findChanges(this, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(),
-                priorSquashState, proposed.toTypedArray())
+                previousSquashState, proposed.toTypedArray())
     }
 
     /**
@@ -80,19 +80,7 @@ class Chain(val app: Application,
             //STORAGE
             //persist transactions to chain (i.e. bundle and add as block[omitted dependenciesFrom prototype]):
 //        if (proposedTransactions.isNotEmpty()) {
-            AverageCallTimeMarker.mark_call_start("persist new block")
-            val blockId = store.highestBlockId() + 1
-
-            val newlyAdded = LinkedList<TransactionHash>()
-            for (tx in proposedTransactions) {
-                val txp = tx.hash
-
-                store.add(txp, tx.withBlockId(blockId))
-                newlyAdded.add(txp)
-            }
-            val newBlock = Block(latestHash, relayBlock.proof, newlyAdded)
-            store.add(newBlock)
-            AverageCallTimeMarker.mark_call_end("persist new block")
+            val (blockId, newBlock) = persist(store.highestBlockId() + 1, proposedTransactions, latestHash, relayBlock)
 
             //commit changes generated during squash and addition of newest block (required to be done before app.newBlock, because that one is likely to query the store)
             store.commit()
@@ -107,6 +95,39 @@ class Chain(val app: Application,
 //            return -1
 //        }
         }
+    }
+
+    fun appendBlock(squash: Boolean, commit: Boolean, newSquashState: SquashAlgorithmState?, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>): Int {
+        rwLock.write {
+//            if (latestHash != relayBlock.previousBlockHash) NOT REQUIRED::: BECAUSE INSTANCE IS PAUSED HERE
+//            //CHECK HAS TO BE DONE - IT IS PART OF ENSURING THREAD SAFETY AS DETAILED ABOVE
+//            //check has to be done up here, squash may change latest hash (in some storage impls)
+//                throw RejectedExecutionException("latestHash != relayBlock.previousBlockHash")
+            if (proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
+
+            if(squash)
+                TODO()
+
+            val (blockId, _) = persist(newBlockId, proposed, relayBlock.previousBlockHash, relayBlock)
+            if (commit) store.commit()
+            return blockId
+        }
+    }
+
+    private fun persist(newBlockId : Int, txs: List<Transaction>, latestHash: Hash?, relayBlock: Block): Pair<Int, Block> {
+        AverageCallTimeMarker.mark_call_start("persist new block")
+
+        val newlyAdded = LinkedList<TransactionHash>()
+        for (tx in txs) {
+            val txp = tx.hash
+
+            store.add(txp, tx.withBlockId(newBlockId))
+            newlyAdded.add(txp)
+        }
+        val newBlock = Block(latestHash, relayBlock.proof, newlyAdded)
+        store.add(newBlock)
+        AverageCallTimeMarker.mark_call_end("persist new block")
+        return Pair(newBlockId, newBlock)
     }
 
     private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>): Pair<Hash?, Array<Transaction>> {
@@ -250,10 +271,15 @@ class Chain(val app: Application,
      *
      * @param freshApp a freshly created application - an instance of the same type of the app that has initially been provided to the constructor of this class
      */
-    fun applyReplayTo(freshApp: Application) {
+    fun applyReplayTo(freshApp: Application, blockLimit: Int = -1) {
         rwLock.write {
+            var counter = 0
             //Verify omitted for obvious reasons
-            for (block in store) freshApp.newBlock(instance, block, block.map { this[it] })
+            for (block in store) {
+                if(counter>=blockLimit && blockLimit>=0) break
+                freshApp.newBlock(instance, block, block.map { this[it] })
+                counter++
+            }
         }
     }
 
@@ -350,9 +376,9 @@ class Chain(val app: Application,
      * Returns the latest hash currently known to the chain. Can be used to efficiently compare block chains.
      */
     fun getLatestHash() =
-//        rwLock.read {
+        rwLock.read {
             store.getLatestHash()
-//        }
+        }
 
     /**
      * Returns an iterator over all persisted transactions

@@ -139,6 +139,10 @@ open class Block: Iterable<TransactionHash> {
      * Returns whether this block has a previous block
      */
     fun isBlock0() = previousBlockHash == null
+    /**
+     * Rebuilds the merkle root from given txs and matches it to the given merkle root (can be important on decoded blocks)
+     */
+    fun validateMerkleRoot() = rebuildMerkleRoot() == merkleRoot
 
 
     //equals, hashCode, toString
@@ -151,4 +155,9 @@ open class Block: Iterable<TransactionHash> {
     override fun hashCode(): Int = txs.contentHashCode()
     override fun toString(): String = "[Block(previous=$previousBlockHash, merkle=$merkleRoot) : ${Arrays.toString(txs)}"
 
+}
+
+fun MutableMap<TransactionHash, Transaction>.removeAll(b: Iterable<TransactionHash>) {
+    for(txp in b)
+        this.remove(txp)
 }

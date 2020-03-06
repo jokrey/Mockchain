@@ -22,6 +22,8 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
      * Manual command to initiate proposing a new block.
      */
     fun performConsensusRound(requestSquash: Boolean) {
+        if(isPaused) return
+
         val requestSquash = requestSquash || (squashEveryNRounds>0 && roundCounter % squashEveryNRounds == 0)
         val proposedTransactions = instance.memPool.getTransactions().toMutableList()
         attemptCreateAndAddLocalBlock(proposedTransactions, Proof(byteArrayOf(if(requestSquash) 1 else 0)), requestSquash = requestSquash)
@@ -29,6 +31,8 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
     }
 
     fun performTick(tickCounter: Int) {
+        if(isPaused) return
+
         if (consensusEveryNTick < 0) {
             if (Random().nextInt(-consensusEveryNTick) == 0)
                 performConsensusRound(false)
@@ -36,13 +40,14 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
             performConsensusRound(false)
     }
 
-
     //allows usage in a network, though that, naturally, is discouraged and should be used with care even for testing
     override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
     override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ByteArray(0)
     override fun getLocalIdentity() = ByteArray(0)
     override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash)
             = proof.size == 1 && (proof[0] == 0.toByte() || proof[0] == 1.toByte())
+
+    override fun allowFork(forkIndex: Int, ownBlockHeight: Int, remoteBlockHeight: Int) = true
 
     override fun run() {}
     override fun notifyNewLatestBlockPersisted(newBlock: Block) {}

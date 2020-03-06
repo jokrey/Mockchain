@@ -4,6 +4,7 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.bitsandbytes.BitHelper
+import java.lang.IllegalStateException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -60,11 +61,16 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
         }
     }
 
+    override fun resume() {
+        super.resume()
+        condition.signal()
+    }
+
 
     final override fun run() {
         while(true) {
             lock.withLock {
-                while (selectedTxs.isEmpty())
+                while (selectedTxs.isEmpty() || isPaused)
                     condition.await()
 
                 //could be cached
@@ -81,9 +87,10 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
                     val proofBuilder = proofToSolve + solve.raw
                     val proof = Proof(proofBuilder)
 
-                    createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, requestSquash, merkleRootOfSelectedTxs)
-
-                    reselectTxsToBuild()
+                    try {
+                        createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, requestSquash, merkleRootOfSelectedTxs)
+                        reselectTxsToBuild()
+                    } catch (e: IllegalStateException) {e.printStackTrace()} //can occur in case it was paused in between
                 } else
                     currentNonce++
             }
@@ -120,6 +127,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
 
         return verifySolveAttempt(givenSolve, difficulty) && givenSolve.contentEquals(calculateSolve(previousBlockHash, merkleRoot, proofToSolve).raw)
     }
+    override fun allowFork(forkIndex: Int, ownBlockHeight: Int, remoteBlockHeight: Int) = true
 
     override fun getCreator() = SimpleProofOfWorkConsensusCreator(difficulty, minerIdentity)
 }

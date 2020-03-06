@@ -94,4 +94,6 @@ interface Application {
      * This method should not alter state. It should only be used to determine that a tx should no longer be used as a dependency
      */
     fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason)
+
+    fun newEqualInstance(): Application
 }

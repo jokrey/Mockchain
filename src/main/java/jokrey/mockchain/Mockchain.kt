@@ -68,7 +68,7 @@ open class Mockchain(internal val app: Application,
         for (txp in block)
             memPool.remove(txp)
 
-        log("new block added = $block")
+        log("mockchain - block locally added")
     }
 
     internal open fun log(s: String) {

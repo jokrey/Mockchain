@@ -46,8 +46,9 @@ interface StorageModel {
     fun add(key: TransactionHash, value: Transaction)
     fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction)
     fun replace(key: TransactionHash, newValue: Transaction)
-    fun remove(oldHash: TransactionHash)
-
+    fun remove(key: TransactionHash)
+    //fork
+    fun deleteAllToBlockIndex(index: Int)
 
     //for all
     fun commit()
@@ -115,7 +116,7 @@ class NonPersistentStorage : StorageModel {
 
     override fun add(key: TransactionHash, value: Transaction) {
         if(value.blockId < 0) throw IllegalStateException("attempt to persist tx with illegal block id")
-        if( key in uncommittedTXS && uncommittedTXS[key]!!.blockId != value.blockId ) throw IllegalStateException("hash known")
+        if(key in uncommittedTXS && uncommittedTXS[key]!!.blockId != value.blockId ) throw IllegalStateException("hash known")
         uncommittedTXS[key] = value
     }
     override fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction) {
@@ -127,7 +128,17 @@ class NonPersistentStorage : StorageModel {
     override fun replace(key: TransactionHash, newValue: Transaction) {
         uncommittedTXS[key] = newValue
     }
-    override fun remove(oldHash: TransactionHash) { uncommittedTXS.remove(oldHash) }
+    override fun remove(key: TransactionHash) { uncommittedTXS.remove(key) }
+
+
+    override fun deleteAllToBlockIndex(index: Int) {
+        if(index+1 < uncommittedBLOCKS.size) {
+            val subView = uncommittedBLOCKS.subList(index+1, uncommittedBLOCKS.size)
+            for(b in subView)
+                uncommittedTXS.removeAll(b)
+            subView.clear()
+        }
+    }
 
     override fun commit() {
 //        for(uncommitted in uncommittedTXS)
@@ -156,9 +167,6 @@ class NonPersistentStorage : StorageModel {
         for(c in changeOccurredCallbacks) c()
     }
 }
-
-
-
 
 
 class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
@@ -307,9 +315,22 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     override fun replace(key: TransactionHash, newValue: Transaction) {
         currentBatch.put(toTxsKey(key), newValue.encode())
     }
-    override fun remove(oldHash: TransactionHash) {
-        currentBatch.delete(oldHash.getHash())
-        numberOfTxs_uncommitted++
+    override fun remove(key: TransactionHash) {
+        currentBatch.delete(toTxsKey(key))
+        numberOfTxs_uncommitted--
+    }
+
+    override fun deleteAllToBlockIndex(index: Int) {
+        var deleteCounter = index+1
+        while(deleteCounter < numberOfBlocks_uncommitted) {
+            val b = queryBlock(deleteCounter)
+            for(txp in b)
+                remove(txp)
+            currentBatch.delete(toBlockKey(deleteCounter))
+            numberOfBlocks_uncommitted--
+
+            deleteCounter++
+        }
     }
 
 
