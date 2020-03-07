@@ -117,7 +117,7 @@ open class Block: Iterable<TransactionHash> {
         for((before, after) in changes)
             cloned[cloned.indexOf(before)] = after
         //todo - proof has to be changed - BUT TO WHAT THO?? - maybe just a flag?
-        //todo - without a change it becomes instantly impossible to validate the proof after a squash - though is that even necessary or possible in general? (on catch up - potentially)
+        //     - without a change it becomes instantly impossible to validate the proof after a squash - though is that even necessary or possible in general? (on catch up - potentially)
         return Block(previousBlockHash, proof, cloned)
     }
     fun changePreviousHash(newPreviousHash: Hash?): Block {

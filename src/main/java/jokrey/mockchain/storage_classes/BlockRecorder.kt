@@ -9,17 +9,38 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
     private var latestBlockIdStored = -1
 
     fun applyRecordedBlocks() = synchronized(this) {
-        for(rb in store.toSortedMap().values) {
-            val fallbacks = instance.node.p2lNode.establishedConnections.map { it.socketAddress }.filter { it != rb.from }.shuffled().toTypedArray()
-            val txs = instance.node.queryAllTx(rb.b, instance.memPool, rb.from, *fallbacks)
-            if(txs.size != rb.b.size) {
-                store.clear()
-                throw IllegalStateException("failed to query all tx for recorded block(=${rb.b}, from=${rb.from})")
+        instance.log("instance.chain.getBlocks(${instance.chain.getBlocks().size}) = ${instance.chain.getBlocks().toList()}")
+        instance.log("store = ${store}")
+        instance.log("instance.chain.blockCount() = ${instance.chain.blockCount()}")
+        try {
+            for ((index, rb) in store.toSortedMap().entries) {
+                if (index >= instance.chain.blockCount()) {
+                    if (index > instance.chain.blockCount()) {
+                        instance.node.catchMeUpTo(rb.from)
+                        return@synchronized
+                    } else {
+                        addRecordedBlock(index, rb)
+                    }
+                } else {
+                    //Do nothing - the block is behind
+                }
             }
-
-            instance.consensus.attemptVerifyAndAddRemoteBlock(rb.b, txs.asTxResolver(), true)
+        } finally {
+            store.clear()
         }
-        store.clear()
+    }
+
+    private fun addRecordedBlock(index:Int, rb: RecordedBlock) {
+        val fallbacks = instance.node.p2lNode.establishedConnections.map { it.socketAddress }.filter { it != rb.from }.shuffled().toTypedArray()
+        val txs = instance.node.queryAllTx(rb.b, instance.memPool, rb.from, *fallbacks)
+        if (txs.size != rb.b.size) {
+            store.clear()
+            throw IllegalStateException("failed to query all tx for recorded block(=${rb.b}, from=${rb.from})")
+        }
+
+        val at = instance.consensus.attemptVerifyAndAddRemoteBlock(rb.b, txs.asTxResolver(), true)
+        if(at == -1) throw IllegalStateException("could not add block - tx(s) rejected")
+        else if(at != index) throw IllegalStateException("problem: actual added index($at) different to expected index($index)")
     }
 
     fun addNew(atHeight: Int, receivedBlock: Block, from: SocketAddress): Boolean = synchronized(this) {
@@ -32,7 +53,8 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
         return if (previous != null) {
             previous.getHeaderHash() == receivedBlock.getHeaderHash()
         } else {
-            if(latestBlockIdStored == -1 || atHeight == latestBlockIdStored+1) {
+            if((latestBlockIdStored == -1 || atHeight == latestBlockIdStored+1) &&
+                    store.size + 1 <= maxBlocksToStore) {
                 store[atHeight] = RecordedBlock(receivedBlock, from)
                 true
             } else {

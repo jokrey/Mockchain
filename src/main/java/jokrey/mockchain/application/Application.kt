@@ -95,5 +95,8 @@ interface Application {
      */
     fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason)
 
+    /**
+     * Todo - this has some SERIOUS requirements to the application - in case of a fork it needs to be able to VERY quickly accept changes.
+     */
     fun newEqualInstance(): Application
 }

@@ -8,6 +8,7 @@ import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.util.EmptyApplication
 import jokrey.utilities.network.link2peer.P2Link
+import jokrey.utilities.network.link2peer.node.DebugStats
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
 import org.junit.jupiter.api.Test
 import java.util.concurrent.ThreadLocalRandom
@@ -170,6 +171,8 @@ class DistributedTests {
 
         instance1.node.p2lNode.disconnectFromAll()
 
+        sleep(1000)
+
         instance1.commitToMemPool(tx3)
         instance1.consensus.performConsensusRound(false)
 
@@ -228,6 +231,8 @@ class DistributedTests {
 
         instance1.node.p2lNode.disconnectFromAll()
 
+        sleep(1000)
+
         for(i in 1500 until 2000) instance1.commitToMemPool(Transaction(byteArrayOf(3) + rand(1000)))
         instance1.consensus.performConsensusRound(false)
 
@@ -244,9 +249,12 @@ class DistributedTests {
         for(i in 2500 until 3000) instance1.commitToMemPool(Transaction(byteArrayOf(5) + rand(1000)))
         instance1.consensus.performConsensusRound(false)
 
+        instance1.commitToMemPool(Transaction(byteArrayOf(6)))
+        instance1.consensus.performConsensusRound(false)
+
         sleep(10000)
 
-        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), *instance2.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
+        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
     }
 
     @Test
@@ -280,6 +288,8 @@ class DistributedTests {
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), *instance2.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
 
         instance1.node.p2lNode.disconnectFromAll()
+
+        sleep(1000)
 
         for(i in 1500 until 1600) {
             instance1.commitToMemPool(Transaction(byteArrayOf(3, i.toByte(), (i*13).toByte())))
@@ -358,6 +368,8 @@ class DistributedTests {
 
         instance1.node.p2lNode.disconnectFromAll()
 
+        sleep(1000)
+
         instance1.commitToMemPool(tx3)
         instance1.consensus.performConsensusRound(false)
 
@@ -368,25 +380,132 @@ class DistributedTests {
 
         instance1.commitToMemPool(tx4)
         instance1.consensus.performConsensusRound(false)
+        for(i in 0 until 500) {
+            for(j in 0 until 5)
+                instance1.commitToMemPool(Transaction(rand(2000)))
+            instance1.consensus.performConsensusRound(false)
+        }
 
         instance1.connect(instance2.selfLink, catchup = false)
 
-        for(i in 0 until 5)
-            instance1.commitToMemPool(Transaction(rand(2000)))
+        instance1.commitToMemPool(Transaction(rand(2000)))
         instance1.consensus.performConsensusRound(false)
         instance1.commitToMemPool(tx6) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
         instance1.consensus.performConsensusRound(false)
-//        instance1.commitToMemPool(Transaction(rand(100))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-//        instance1.consensus.performConsensusRound(false)
-//        instance1.commitToMemPool(Transaction(rand(100))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-//        instance1.consensus.performConsensusRound(false)
+        for(i in 0 until 5)
+            instance1.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
+        instance1.consensus.performConsensusRound(false)
+        for(i in 0 until 5)
+            instance1.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
+        instance1.consensus.performConsensusRound(false)
 
         sleep(1000)
+
+        println("instance1.chain.getBlocks() = ${instance1.chain.getBlocks().toList()}")
+        println("instance2.chain.getBlocks() = ${instance2.chain.getBlocks().toList()}")
+
         instance1.commitToMemPool(tx7)
         instance1.consensus.performConsensusRound(false)
-        sleep(1000)
+        sleep(2000)
 
         helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
+//        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7)
+//        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7)
+    }
+
+    @Test
+    fun forkTestSimple_concurrentToPerform_pauseTest() {
+        val instance1 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 44251), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 44252), consensus = ManualConsensusAlgorithmCreator())
+        val instance3 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 44253), consensus = ManualConsensusAlgorithmCreator())
+        instance1.consensus as ManualConsensusAlgorithm
+        instance2.consensus as ManualConsensusAlgorithm
+        instance3.consensus as ManualConsensusAlgorithm
+
+        instance1.connect(instance2.selfLink, catchup = false)
+        instance1.connect(instance3.selfLink, catchup = false)
+
+        val tx0 = Transaction(byteArrayOf(0))
+        val tx1 = Transaction(byteArrayOf(1))
+        val tx2 = Transaction(byteArrayOf(2))
+        val tx3 = Transaction(byteArrayOf(3))
+        val tx4 = Transaction(byteArrayOf(4))
+        val tx4_oo1 = Transaction(byteArrayOf(44))
+        val tx5 = Transaction(byteArrayOf(5))
+        val tx6 = Transaction(byteArrayOf(6))
+        val tx7 = Transaction(byteArrayOf(7))
+
+        instance1.commitToMemPool(tx0)
+        sleep(100)
+        instance1.consensus.performConsensusRound(false)
+        sleep(100)
+        instance1.commitToMemPool(tx1)
+        sleep(100)
+        instance2.consensus.performConsensusRound(false)
+        sleep(100)
+        instance2.commitToMemPool(tx2)
+        sleep(100)
+        instance1.consensus.performConsensusRound(false)
+        sleep(100)
+
+        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
+        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
+
+        instance1.node.p2lNode.disconnectFrom(instance2.selfLink)
+
+        sleep(1000)
+
+        instance1.commitToMemPool(tx3)
+        instance1.consensus.performConsensusRound(false)
+
+        instance2.commitToMemPool(tx3)
+        instance2.consensus.performConsensusRound(false)
+        instance2.commitToMemPool(tx4_oo1)
+        instance2.consensus.performConsensusRound(false)
+
+        instance1.commitToMemPool(tx4)
+        instance1.consensus.performConsensusRound(false)
+        for(i in 0 until 10) {
+            for(j in 0 until 1)
+                instance1.commitToMemPool(Transaction(rand(2000)))
+            instance1.consensus.performConsensusRound(false)
+        }
+
+        instance1.connect(instance2.selfLink, catchup = false)
+
+        Thread(Runnable {
+            instance3.commitToMemPool(tx6) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
+            instance3.consensus.performConsensusRound(false)
+            for (i in 0 until 5)
+                instance3.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
+            instance3.consensus.performConsensusRound(false)
+            for (i in 0 until 5)
+                instance3.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
+            instance3.consensus.performConsensusRound(false)
+        }).start()
+
+        for(j in 0 until 100)
+            instance1.commitToMemPool(Transaction(rand(2000)))
+        instance1.consensus.performConsensusRound(false)
+
+
+        sleep(5000)
+
+        instance1.commitToMemPool(Transaction(rand(2000)))
+        instance1.consensus.performConsensusRound(false)
+
+        sleep(5000)
+
+        println("instance1.chain.getBlocks() = ${instance1.chain.getBlocks().toList()}")
+        println("instance2.chain.getBlocks() = ${instance2.chain.getBlocks().toList()}")
+        println("instance3.chain.getBlocks() = ${instance3.chain.getBlocks().toList()}")
+//
+//        instance1.commitToMemPool(tx7)
+//        instance1.consensus.performConsensusRound(false)
+//        sleep(2000)
+
+        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
+        helper_assertEquals(instance3.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
 //        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7)
 //        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7)
     }
@@ -439,6 +558,38 @@ class DistributedTests {
         }
     }
 
+
+
+
+
+
+    @Test
+    fun catchUpTest() {
+        val instance1 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 44232), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 44233), consensus = ManualConsensusAlgorithmCreator())
+        instance1.consensus as ManualConsensusAlgorithm
+        instance2.consensus as ManualConsensusAlgorithm
+
+        val tx0 = Transaction(byteArrayOf(0))
+        val tx1 = Transaction(byteArrayOf(1))
+        val tx2 = Transaction(byteArrayOf(2))
+
+        instance1.commitToMemPool(tx0)
+        instance1.consensus.performConsensusRound(false)
+        instance2.commitToMemPool(tx0)
+        instance2.consensus.performConsensusRound(false)
+        instance1.commitToMemPool(tx1)
+        instance1.consensus.performConsensusRound(false)
+        instance1.commitToMemPool(tx2)
+        instance1.consensus.performConsensusRound(false)
+
+        instance2.connect(instance1.selfLink, catchup = true) //order is important here.. instance2 is behind and it will ask instance1 to catch her up, but if instance1 were behind instance2 would not automatically catch 'em up
+
+        DebugStats.print(true)
+
+        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
+        helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
+    }
 }
 
 private fun putBlocks(instance: Mockchain, blocks: List<Block>, stopWithSize: Int = (blocks.size)) {

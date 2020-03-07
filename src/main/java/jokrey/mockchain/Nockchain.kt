@@ -7,6 +7,10 @@ import jokrey.mockchain.network.ChainNode
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
+import java.lang.IllegalArgumentException
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 
 /**
@@ -15,8 +19,6 @@ import jokrey.utilities.network.link2peer.P2Link
  *
  * Should be used exactly like the Mockchain. To the user it is only extended by the connect methods that allow connecting to peers by a link.
  * Additionally it is discouraged to use the ManualConsensusAlgorithm.
- *
- * TODO - missing fork and catch up algorithm. I.e. the chain currently has to be synchronous between all nodes - adding new nodes on the fly is not possible.
  */
 class Nockchain(app: Application,
                 val selfLink: P2Link,
@@ -26,12 +28,19 @@ class Nockchain(app: Application,
     internal val node = ChainNode(selfLink, 10, this)
 
     /** @see P2LNode.establishConnections */
-    fun connect(vararg links: P2Link, catchup: Boolean = false) { //todo - implement catch up algorithm (both mem pool and previous blocks)
+    fun connect(vararg links: P2Link, catchup: Boolean = false) {
+        if(links.isEmpty()) return
         node.connect(*links)
+
+        if(catchup)
+            node.catchMeUpTo(*links)
     }
     /** @see P2LNode.recursiveGarnerConnections */
     fun recursiveConnect(connectionLimit:Int, vararg links: P2Link, catchup: Boolean = false) {
-        node.recursiveConnect(connectionLimit, *links)
+        val successfulConnects = node.recursiveConnect(connectionLimit, *links)
+
+        if(catchup)
+            node.catchMeUpTo(*successfulConnects.toTypedArray())
     }
 
     override fun commitToMemPool(tx: Transaction, local: Boolean) {
@@ -54,21 +63,32 @@ class Nockchain(app: Application,
     }
 
 
+    internal var isInPausedRecordMode: Boolean = false
+    private val rwLock = ReentrantReadWriteLock()
+    fun<T> requireNonPaused(action: ()->T) = rwLock.read { action() }
     /**
      * Pauses: consensus algorithm, chain node block receival(recorded)
      */
-    fun pauseAndRecord() {
+    fun<T> pauseAndRecord(action: ()->T) = rwLock.write {
         consensus.pause()
-        node.modeRecordNewBlocks()
-    }
-    fun resume() {
-        blockRecorder.applyRecordedBlocks()
+        isInPausedRecordMode = true
 
-        consensus.resume()
-        node.modeAllowNewBlocks()
+        try {
+            action()
+        } finally {
+            blockRecorder.applyRecordedBlocks()
+
+            consensus.resume()
+            isInPausedRecordMode = false
+        }
     }
 
     override fun log(s: String) {
         System.err.println("$selfLink - $s")
+    }
+
+    override fun close() {
+        super.close()
+        node.p2lNode.close()
     }
 }

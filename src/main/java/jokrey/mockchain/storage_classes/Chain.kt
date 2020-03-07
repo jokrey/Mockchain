@@ -79,7 +79,6 @@ class Chain(val app: Application,
 
             //STORAGE
             //persist transactions to chain (i.e. bundle and add as block[omitted dependenciesFrom prototype]):
-//        if (proposedTransactions.isNotEmpty()) {
             val (blockId, newBlock) = persist(store.highestBlockId() + 1, proposedTransactions, latestHash, relayBlock)
 
             //commit changes generated during squash and addition of newest block (required to be done before app.newBlock, because that one is likely to query the store)
@@ -88,28 +87,24 @@ class Chain(val app: Application,
             instance.consensus.notifyNewLatestBlockPersisted(newBlock)
 
             return blockId
-//        } else {
-//            store.commit()
-//
-//            LOG.fine("No transactions would be in new block after verification and squash - NOT creating empty block")
-//            return -1
-//        }
         }
     }
 
-    fun appendBlock(squash: Boolean, commit: Boolean, newSquashState: SquashAlgorithmState?, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>): Int {
+    private var lastPersistedId: Int = -1
+    fun appendBlock(squash: Boolean, isFirst: Boolean, newSquashState: SquashAlgorithmState?, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>): Int {
         rwLock.write {
-//            if (latestHash != relayBlock.previousBlockHash) NOT REQUIRED::: BECAUSE INSTANCE IS PAUSED HERE
-//            //CHECK HAS TO BE DONE - IT IS PART OF ENSURING THREAD SAFETY AS DETAILED ABOVE
-//            //check has to be done up here, squash may change latest hash (in some storage impls)
+//            if (getLatestHash() != relayBlock.previousBlockHash) NOT REQUIRED::: BECAUSE INSTANCE IS PAUSED HERE - ALSO NOT POSSIBLE SINCE getLatestHash operates on committed data, which we do not do here..
 //                throw RejectedExecutionException("latestHash != relayBlock.previousBlockHash")
             if (proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
             if(squash)
                 TODO()
 
+            if(newBlockId != lastPersistedId+1 && !isFirst)
+                return -1
+            lastPersistedId = newBlockId
+
             val (blockId, _) = persist(newBlockId, proposed, relayBlock.previousBlockHash, relayBlock)
-            if (commit) store.commit()
             return blockId
         }
     }

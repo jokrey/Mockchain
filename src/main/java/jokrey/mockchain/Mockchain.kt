@@ -16,7 +16,7 @@ import java.lang.System.err
  * However the consensus algorithm already includes the squash feature that allows applications to selectively minimize their data usage after the fact.
  */
 
-open class Mockchain(internal val app: Application,
+open class Mockchain(internal var app: Application,
                      store: StorageModel = NonPersistentStorage(),
                      consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
     internal val memPool = MemPool()
@@ -24,7 +24,7 @@ open class Mockchain(internal val app: Application,
     internal val consensus =  consensus.create(this)
 
     init {
-        this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass mockchain is not initialized yet.
+        this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass nockchain is not initialized yet.
     }
 
     /**
@@ -41,7 +41,7 @@ open class Mockchain(internal val app: Application,
         }
         if(tx.blockId >= 0)
             throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty")
-        log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
+//        log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
         memPool[tx.hash] = tx
 
         consensus.notifyNewTransactionInMemPool(tx)
@@ -76,6 +76,8 @@ open class Mockchain(internal val app: Application,
     }
 
     override fun close() {
+//        consensus.close()
+//        chain.close()
         throw IllegalAccessError("cannot close a blockchain... But note that if you don't you (might) get a memory leak.")
     }
 }

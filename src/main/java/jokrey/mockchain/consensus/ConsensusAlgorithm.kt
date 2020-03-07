@@ -1,11 +1,11 @@
 package jokrey.mockchain.consensus
 
-import com.sun.org.apache.xpath.internal.operations.Bool
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.Application
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
+import java.net.SocketAddress
 
 /**
  * Will propose blocks to the chain. Either based on internal rules on its own, or upon an external command.
@@ -78,7 +78,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     }
 
 
-    fun attemptVerifyAndAddForkedBlock(receivedForkBlock: Block, receivedBlockId: Int, resolver: TransactionResolver, forkSquashState: SquashAlgorithmState?, forkApplication: Application, isLast: Boolean): Pair<SquashAlgorithmState?, Int> {
+    fun attemptVerifyAndAddForkedBlock(receivedForkBlock: Block, receivedBlockId: Int, resolver: TransactionResolver, forkSquashState: SquashAlgorithmState?, forkApplication: Application, isFirst: Boolean): Pair<SquashAlgorithmState?, Int> {
         val requestSquash = extractRequestSquashFromProof(receivedForkBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedForkBlock.proof)
 
@@ -88,7 +88,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         if(proposedTransactions.size != receivedForkBlock.size) //if even a single transaction was rejected
             return Pair(null, -1)
 
-        return Pair(newSquashState, instance.chain.appendBlock(requestSquash, isLast, newSquashState, receivedBlockId, receivedForkBlock, proposedTransactions))
+        return Pair(newSquashState, instance.chain.appendBlock(requestSquash, isFirst, newSquashState, receivedBlockId, receivedForkBlock, proposedTransactions))
     }
 
 
@@ -111,7 +111,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     open fun resume() { isPaused = false }
 
 
-    //todo - i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
+    //i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
     protected fun removeAllRejectedTransactionsFrom(blockCreatorIdentity: ByteArray, proposed: MutableList<Transaction>,
                                                     overridePreviousSquashState: Boolean = false, previousSquashState: SquashAlgorithmState? = null, app: Application = instance.app) : SquashAlgorithmState? {
         var newSquashState: SquashAlgorithmState? = null
@@ -143,7 +143,8 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
 
 
     //TODO - is it reasonable to remove the transaction from the mem pool right away?
-    //     - the app should have a say in that, no?
+    //     - the app should have a say in that, no? If it for example should be resubmitted
+//         - technically though the app does have a say - it gets a callback and can resubmit
     private fun handleRejection(proposed: List<Transaction>, rejected: List<Pair<Transaction, RejectionReason>>) {
         for ((rejectedTransaction, reason) in rejected) {
             if(rejectedTransaction !in proposed) {
@@ -157,6 +158,8 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
             instance.log("$reason rejected: $rejectedTransaction")
         }
     }
+
+    open fun allowProvideCatchUpTo(peer: SocketAddress, blockCount: Int, remoteBlockHeight: Int): Boolean = true
 
 
     /*

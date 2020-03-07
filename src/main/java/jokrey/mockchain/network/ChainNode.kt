@@ -7,11 +7,11 @@ import jokrey.utilities.encoder.as_union.li.bytes.MessageEncoder
 import jokrey.utilities.network.link2peer.P2LMessage
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
-import jokrey.utilities.network.link2peer.node.core.ConversationAnswererChangeThisName
 import jokrey.utilities.network.link2peer.node.core.P2LConversation
 import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.network.link2peer.util.TimeoutException
+import java.lang.Exception
 import java.lang.IllegalStateException
 import java.lang.Integer.min
 import java.net.SocketAddress
@@ -20,6 +20,7 @@ import java.util.concurrent.RejectedExecutionException
 private const val TX_BROADCAST_TYPE:Short = 1
 private const val NEW_BLOCK_TYPE:Int = 2
 private const val TX_REQUEST:Int = 3
+private const val CATCH_ME_UP_IF_YOU_CAN: Int = 4
 
 /**
  * This class is the connection to the peer to peer network.
@@ -37,9 +38,8 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         p2lNode.establishConnections(*links).waitForIt()
     }
     /** @see P2LNode.recursiveGarnerConnections */
-    internal fun recursiveConnect(connectionLimit: Int, vararg links: P2Link) {
+    internal fun recursiveConnect(connectionLimit: Int, vararg links: P2Link) =
         p2lNode.recursiveGarnerConnections(connectionLimit, *links)
-    }
 
     init {
         p2lNode.addBroadcastListener {
@@ -63,10 +63,8 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 convo.closeWith(queriedTx.encode())
         }
 
-        val newBlockConversation = ConversationAnswererChangeThisName { convo, m0 ->
-            newBlockConversation_client_init(convo, m0)
-        }
-        p2lNode.registerConversationFor(NEW_BLOCK_TYPE, newBlockConversation)
+        p2lNode.registerConversationFor(NEW_BLOCK_TYPE, this::newBlockConversation_server_init)
+        p2lNode.registerConversationFor(CATCH_ME_UP_IF_YOU_CAN, this::catchMeUp_server_init)
     }
 
     internal fun relayValidBlock(block: Block, exception: SocketAddress? = null) {
@@ -74,24 +72,16 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             P2LThreadPool.Task {
                 val to = peer.socketAddress
                 if(to != exception) {
-                    newBlockConversation_server_init(to, block)
+                    newBlockConversation_client_init(to, block)
                 }
             }
         })
     }
 
-    var inRecordMode = false
-    fun modeRecordNewBlocks() {
-        inRecordMode = true
-    }
-    fun modeAllowNewBlocks() {
-        inRecordMode = false
-    }
-
 
 
     private fun handleBlockRelayError(errorCode: Byte) {
-        //todo - NOTE THAT THIS IS IN A NON BLOCKING THREAD AND OTHER BLOCK RELAY'S MAY STILL CONTINUE CONCURRENTLY
+        //NOTE THAT THIS IS IN A NON BLOCKING THREAD AND OTHER BLOCK RELAY'S MAY STILL CONTINUE CONCURRENTLY
         instance.log("error relaying block: code=$errorCode")
     }
 
@@ -165,24 +155,54 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         val receipts = p2lNode.sendBroadcastWithReceipts(P2LMessage.Factory.createBroadcast(p2lNode.selfLink, TX_BROADCAST_TYPE, tx.encode()))
 
         txBroadcastCounter++
-        instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")
-        receipts.callMeBack {
-            instance.log("success counter for broadcast-memPool-tx(id:$txBroadcastCounter): $it/$numConnected")
+//        instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")
+//        receipts.callMeBack {
+//            instance.log("success counter for broadcast-memPool-tx(id:$txBroadcastCounter): $it/$numConnected")
+//        }
+    }
+
+
+    /**
+     * Will attempt to catchup from the given peers in that order until catchup was successful.
+     * Internally uses the fork protocol, so the consensus algorithm will be asked if it allows the catchup, which can also include a fork
+     */
+    fun catchMeUpTo(vararg peers: P2Link) = catchMeUpTo(*peers.map {it.socketAddress}.toTypedArray())
+    fun catchMeUpTo(vararg peers: SocketAddress) : Boolean {
+        for(peer in peers) {
+            val convo = p2lNode.convo(CATCH_ME_UP_IF_YOU_CAN, peer)
+            val m0 = convo.initExpectMsg(convo.encode(instance.chain.blockCount()))
+            val result = m0.nextByte()
+            val remoteBlockHeight = m0.nextInt()
+            if (result == WILL_PROVIDE_CATCH_UP) {
+                val m1 = convo.answerExpectMsg(byteArrayOf(ACCEPT_FORK))
+                try {
+                    acceptFork_Protocol(convo, remoteBlockHeight, m1)
+                    return true
+                } catch (e: Exception) { e.printStackTrace() }
+            }
+        }
+        return false
+    }
+
+    private fun catchMeUp_server_init(convo: P2LConversation, m0: P2LMessage) {
+        instance.requireNonPaused {
+            val remoteBlockHeight = m0.nextInt()
+            val ownBlockHeight = instance.chain.blockCount()
+            if (instance.consensus.allowProvideCatchUpTo(convo.peer, ownBlockHeight, remoteBlockHeight)) {
+                val result = convo.answerExpectMsg(convo.encode(WILL_PROVIDE_CATCH_UP, ownBlockHeight)).nextByte()
+                if(result == ACCEPT_FORK)
+                    provideFork_Protocol(convo, instance.chain.blockCount())
+                else
+                    convo.close()
+            } else {
+                convo.answerClose(byteArrayOf(DENY_CATCH_UP))
+            }
         }
     }
 
 
-
-
-
-
-
-
-
-
-
     //BLOCK PROTOCOL CODES
-    val BLOCK_HEIGHT_TOO_LOW = (-1).toByte()
+    val DENIED_YOU_ARE_BEHIND = (-1).toByte()
     val PROOF_INVALID = (-2).toByte()
     val COULD_NOT_QUERY_ALL_TXP_IN_BLOCK = (-3).toByte()
     val TX_VERIFICATION_FAILED = (-4).toByte()
@@ -202,46 +222,51 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     val FORK_DENIED_BY_TOO_FEW_BLOCKS = (-32).toByte()
     val FORK_DENIED_BY_UNKNOWN = (-33).toByte()
     val CONTINUE_ALL_AT_ONCE = 4.toByte()
+    val WILL_PROVIDE_CATCH_UP = 5.toByte()
+    val DENY_CATCH_UP = (-51).toByte()
 
-    private fun newBlockConversation_client_init(convo: P2LConversation, m0: P2LMessage) {
+    private fun newBlockConversation_server_init(convo: P2LConversation, m0: P2LMessage) {
 //        convo.close()
 //        val receivedBlock = Block(m0.asBytes())
 //        val previousBlockHash = receivedBlock.previousBlockHash
-//          TODO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
+
+//          TO-DO - potentially it should be up the consensus algorithm to penalize peers that frequently propose invalid blocks.
 //               - though note that it is only possible to penalize signed blocks(i.e. blocks in which the creator is verifiably known)
 
 //        println("m0 = ${m0.asBytes().toList()}")
         val newBlockHash = Hash.raw(m0.nextVariable())
         val previousBlockHashRaw = m0.nextVariable()
-        val previousBlockHash = if(previousBlockHashRaw.isEmpty()) null else Hash.raw(previousBlockHashRaw)
+        val previousBlockHash = if (previousBlockHashRaw.isEmpty()) null else Hash.raw(previousBlockHashRaw)
         val newBlockHeight = m0.nextInt()
         instance.log("received unconfirmed block header part = (newBlockHash=$newBlockHash, previousBlockHash=$previousBlockHash, newBlockHeight=$newBlockHeight)")
 
-        if(instance.node.inRecordMode) {
+        if (instance.isInPausedRecordMode) {
             val m1 = convo.answerExpectMsg(byteArrayOf(CONTINUE_ALL_AT_ONCE))
-            newBlockConversation_client_pathRecordMode(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
+            newBlockConversation_server_pathRecordMode(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
         } else {
-            val latestLocalBlockHash = instance.chain.getLatestHash()
-            if(latestLocalBlockHash != previousBlockHash) {
-                instance.log("latest block hash differnt(fork or someone is behind)")
-                val ownBlockHeight = instance.chain.blockCount()
-                if(newBlockHeight <= ownBlockHeight) {
-                    instance.log("rejected block($newBlockHeight) hash= $newBlockHash, remote is behind(or height is $ownBlockHeight)")
-                    convo.answerClose(byteArrayOf(BLOCK_HEIGHT_TOO_LOW))
-                } else {
-                    instance.log("remote submitted a block ahead(ourHeight=$ownBlockHeight, remoteHeight=$newBlockHeight). Beginning fork protocol")
+            instance.requireNonPaused {
+                val latestLocalBlockHash = instance.chain.getLatestHash()
+                if (latestLocalBlockHash != previousBlockHash) {
+                    instance.log("latest block hash different(fork or someone is behind)")
+                    val ownBlockHeight = instance.chain.blockCount()
+                    if (newBlockHeight <= ownBlockHeight) {
+                        instance.log("rejected block($newBlockHeight) hash= $newBlockHash, remote is behind(or height is $ownBlockHeight)")
+                        convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
+                    } else {
+                        instance.log("remote submitted a block ahead(ourHeight=$ownBlockHeight, remoteHeight=$newBlockHeight). Beginning fork protocol")
 
-                    val m1 = convo.answerExpectMsg(byteArrayOf(ACCEPT_FORK))
-                    newBlockConversation_client_forkProtocol(convo, newBlockHeight, m1)
+                        val m1 = convo.answerExpectMsg(byteArrayOf(ACCEPT_FORK))
+                        acceptFork_Protocol(convo, newBlockHeight, m1)
+                    }
+                } else {
+                    val m1 = convo.answerExpectMsg(byteArrayOf(CONTINUE))
+                    newBlockConversation_server_default(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
                 }
-            } else {
-                val m1 = convo.answerExpectMsg(byteArrayOf(CONTINUE))
-                newBlockConversation_client_default(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
             }
         }
     }
 
-    private fun newBlockConversation_server_init(to: SocketAddress, block: Block) {
+    private fun newBlockConversation_client_init(to: SocketAddress, block: Block) {
         val convo = p2lNode.convo(NEW_BLOCK_TYPE, to)
         var result = CONTINUE
         convo.setMaxAttempts(3)
@@ -254,15 +279,15 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 //        println("en_m0 = ${en_m0.asBytes().toList()}")
         result = convo.initExpectMsg(en_m0).nextByte()
         when (result) {
-            ACCEPT_FORK -> newBlockConversation_server_forkProtocol(convo, newBlockHeight)
-            CONTINUE -> newBlockConversation_server_default(convo, block)
-            CONTINUE_ALL_AT_ONCE -> newBlockConversation_server_blockInOne(convo, block)
+            ACCEPT_FORK -> provideFork_Protocol(convo, newBlockHeight)
+            CONTINUE -> newBlockConversation_client_default(convo, block)
+            CONTINUE_ALL_AT_ONCE -> newBlockConversation_client_blockInOne(convo, block)
             else -> handleBlockRelayError(result)
         }
     }
 
 
-    private fun newBlockConversation_client_pathRecordMode(convo: P2LConversation, newBlockHash: Hash, previousBlockHash: Hash?, newBlockHeight: Int, m1: P2LMessage) {
+    private fun newBlockConversation_server_pathRecordMode(convo: P2LConversation, newBlockHash: Hash, previousBlockHash: Hash?, newBlockHeight: Int, m1: P2LMessage) {
         val proof = Proof(m1.nextVariable())
         val txps = m1.nextVariable().split(Hash.length()).map { TransactionHash(it, true) }
         val receivedBlock = Block(previousBlockHash, proof, txps.toTypedArray())
@@ -279,7 +304,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         }
     }
 
-    private fun newBlockConversation_server_blockInOne(convo: P2LConversation, block: Block) {
+    private fun newBlockConversation_client_blockInOne(convo: P2LConversation, block: Block) {
         val result = convo.answerExpectMsg(convo.encode(block.proof.raw,(block.map { it.raw }.spread(block.size, Hash.length())))).nextByte()
         if(result == SUCCESS_THANK_YOU) {
             //NO PROBLEM
@@ -291,41 +316,51 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     }
 
 
-    private fun newBlockConversation_client_forkProtocol(convo: P2LConversation, remoteBlockHeight: Int, m1: P2LMessage) {
+    private fun acceptFork_Protocol(convo: P2LConversation, remoteBlockHeight: Int, m1: P2LMessage) {
         //after realising fork is required and remote chain is higher (preliminary accept based on incomplete data)
 
-        instance.pauseAndRecord() //also has to pause the consensus algorithm
-        val ownBlockHeight = instance.chain.blockCount()  // requery after pausing the instance
-        try {
+        instance.pauseAndRecord {//also has to pause the consensus algorithm
+            val ownBlockHeight = instance.chain.blockCount()  // requery after pausing the instance
             var hashChainQueryAnswerResult = m1
             var remoteBlocksIndex = remoteBlockHeight
 
-            while(remoteBlocksIndex>0) {
+            instance.log("begin accept fork: own=$ownBlockHeight, remote=$remoteBlockHeight")
+
+            while (remoteBlocksIndex > 0) {
                 val receivedBlockHashes = hashChainQueryAnswerResult.asBytes().split(Hash.length()).map { Hash.raw(it) }
                 remoteBlocksIndex -= receivedBlockHashes.size
                 val forkIndex = findForkIndex(instance.chain, ownBlockHeight, receivedBlockHashes.asReversed(), remoteBlocksIndex, remoteBlockHeight)
 
                 instance.log("forkIndex = ${forkIndex}")
 
-                if(forkIndex < 0 && remoteBlocksIndex != 0) {
+                if(ownBlockHeight >= remoteBlockHeight) {
+                    convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
+                    throw IllegalStateException("consensus denied fork or ownHeightChanged since last check (concurrent fork detected and denied) (ownHeight=$ownBlockHeight, remoteHeight=$remoteBlockHeight)")
+                }
+
+                if (forkIndex < 0 && remoteBlocksIndex != 0) {
+//                    println("acceptFork - waiting for hash chain result")
                     hashChainQueryAnswerResult = convo.answerExpectMsg(byteArrayOf(FORK_CONTINUE))
                 } else {
                     //forkIndex can be -1 here, which is fine if the chains are completely different
-                    //todo - secondary check based on validated data
-                    if(! instance.consensus.allowFork(forkIndex, ownBlockHeight, remoteBlockHeight)) {
+                    //-  secondary check based on validated data
+                    if (!instance.consensus.allowFork(forkIndex, ownBlockHeight, remoteBlockHeight)) {
                         convo.answerClose(byteArrayOf(FORK_DENIED_BY_CONSENSUS))
+                        throw IllegalStateException("consensus denied fork or ownHeightChanged since last check (concurrent fork detected and denied) (ownHeight=$ownBlockHeight, remoteHeight=$remoteBlockHeight)")
                     } else {
 
                         //begin transfer of actual blocks, incrementally validate and query missing txs
+//                        println("acceptFork - waiting for block result")
                         var blockQueryResult = convo.answerExpect(convo.encode(FORK_FOUND, forkIndex))
 
                         instance.chain.store.deleteAllToBlockIndex(forkIndex)
-                        val forkApp = instance.app.newEqualInstance()
+                        val forkApp = if(forkIndex+1 == ownBlockHeight) instance.app else instance.app.newEqualInstance()
                         instance.chain.applyReplayTo(forkApp, forkIndex)
                         var forkSquashState: SquashAlgorithmState? = null
 
-                        for (i in forkIndex+1 until remoteBlockHeight) {
-                            val isLast = i == (remoteBlockHeight-1)
+                        for (i in forkIndex + 1 until remoteBlockHeight) {
+                            val isFirst = i == (forkIndex + 1)
+                            val isLast = i == (remoteBlockHeight - 1)
                             if (blockQueryResult.isEmpty()) {
                                 instance.chain.store.cancelUncommittedChanges()
                                 throw IllegalStateException("error not all blocks received")
@@ -334,12 +369,17 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
                                 instance.log("latestReceivedBlock = ${latestReceivedBlock}")
 
-                                //todo - question: query missing tx asynchronously as demonstrated here or as part of the protocol?? - either can be beneficial depending on the size of the tx, async better for larger tx
+                                //to-do - question: query missing tx asynchronously as demonstrated here or as part of the protocol?? - either can be beneficial depending on the size of the tx, async better for larger tx
                                 val txsInBlock = queryAllTx(latestReceivedBlock, instance.memPool.combineWith(instance.chain), convo.peer)
 
-                                val (newSquashState, newBlockId) = instance.consensus.attemptVerifyAndAddForkedBlock(latestReceivedBlock, i, txsInBlock.asTxResolver(), forkSquashState, forkApp, isLast) //forked version does not commit...
+                                val (newSquashState, newBlockId) = instance.consensus.attemptVerifyAndAddForkedBlock(latestReceivedBlock, i, txsInBlock.asTxResolver(), forkSquashState, forkApp, isFirst) //forked version does not commit...
                                 forkSquashState = newSquashState
-                                if(newBlockId != i) {
+                                if (newBlockId == -1) {
+                                    instance.log("adding fork block rejected, rejected block = $latestReceivedBlock")
+                                    instance.chain.store.cancelUncommittedChanges()
+                                    convo.answerClose(byteArrayOf(TX_VERIFICATION_FAILED))
+                                    throw IllegalStateException("SIMULTANEOUS ACCESS LIKELY")
+                                } else if (newBlockId != i) {
                                     instance.log("not all tx of remote block valid or wrong id(should be $i, was $newBlockId), rejected block = $latestReceivedBlock")
                                     instance.chain.store.cancelUncommittedChanges()
                                     convo.answerClose(byteArrayOf(TX_VERIFICATION_FAILED))
@@ -351,9 +391,13 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                                 } else {
                                     convo.answerClose(byteArrayOf(FORK_COMPLETE_THANKS))
 
+                                    if(instance.app !== forkApp) {
+//                                 todo   instance.app.cleanUpAndDie()
+                                        instance.app = forkApp
+                                    }
                                     instance.chain.store.commit()
 
-                                    return
+                                    return@pauseAndRecord
                                 }
                             }
                         }
@@ -367,12 +411,10 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
             convo.answerClose(byteArrayOf(FORK_DENIED_BY_UNKNOWN))
             throw IllegalStateException("should not occur, fork index invalid or not found or else")
-        } finally {
-            instance.resume()
         }
     }
 
-    private fun newBlockConversation_server_forkProtocol(convo: P2LConversation, blockCountUpTop: Int) {
+    private fun provideFork_Protocol(convo: P2LConversation, blockCountUpTop: Int) {
         //after result was == ACCEPT_FORK
         var hashChainDownCounter = blockCountUpTop
         while(hashChainDownCounter >= 0) {
@@ -387,8 +429,10 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 val blockHash = instance.chain.queryBlockHash(hashChainDownCounter)
                 encoder.encodeFixed(blockHash.raw)
             }
+//            println("provideFork - waiting for result")
             val resultMsg = convo.answerExpectMsg(encoder)
             var result = resultMsg.nextByte()
+//            println("provideFork - result=$result")
             if(result == FORK_CONTINUE) {
                 continue
             } else if(result == FORK_FOUND) {
@@ -403,19 +447,28 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                     else if(result == FORK_COMPLETE_THANKS) {
                         if(i == blockCountUpTop-1)
                             return
-                        else
+                        else {
+                            convo.close()
                             handleBlockRelayError(result) //not an error code, BUT TOO EARLY
-                    } else handleBlockRelayError(result)
+                            return
+                        }
+                    } else {
+                        convo.close()
+                        handleBlockRelayError(result)
+                        return
+                    }
                 }
             } else {
+                convo.close()
                 handleBlockRelayError(result)
+                return
             }
         }
     }
 
 
 
-    private fun newBlockConversation_client_default(convo: P2LConversation, newBlockHash: Hash, previousBlockHash: Hash?, newBlockHeight: Int,
+    private fun newBlockConversation_server_default(convo: P2LConversation, newBlockHash: Hash, previousBlockHash: Hash?, newBlockHeight: Int,
                                                     m1: P2LMessage) {
         val m1_proof = m1
         val proof = Proof(m1_proof.nextVariable())
@@ -432,13 +485,11 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
 
         val m2_txps = convo.answerExpectMsg(byteArrayOf(CONTINUE))
-        println("m2_txps = ${m2_txps}")
         val txps = m2_txps.asBytes().split(Hash.length()).map { TransactionHash(it, true) }
 //        todo    convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
 
         //ensure all tx available (i.e. in own mempool)
         val queriedTransactions = queryAllTx(txps, instance.memPool, convo.peer) //do not allow query from chain here.. potential dos exploitable performance leak
-        println("queriedTransactions = ${queriedTransactions}")
         if(txps.size > queriedTransactions.size) {
             instance.log("failed to query x=${txps.size - queriedTransactions.size} missing txs, rejected block($newBlockHeight) hash= $newBlockHash")
             convo.answerClose(byteArrayOf(COULD_NOT_QUERY_ALL_TXP_IN_BLOCK))
@@ -466,12 +517,11 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 instance.log("not all tx of remote block valid, rejected block = $receivedBlock")
                 convo.answerClose(byteArrayOf(TX_VERIFICATION_FAILED))
                 return
+            } else if(newBlockId != newBlockHeight-1) {
+                instance.log("new block id($newBlockId) does not match initially reported remote height($newBlockHeight), rejected block = $receivedBlock")
+                convo.answerClose(byteArrayOf(ACTUAl_HEIGHT_MISMATCH))
+                return
             }
-//            else if(newBlockId != newBlockHeight) { //TECHNICALLY TRUE; BUT FOR SQUASH THE RELAY BLOCK HEIGHT MAY BE DIFFERENT FROM THE ACTUALLY STORED BLOCK HEIGHT
-//                instance.log("new block id($newBlockId) does not match initially reported remote height($newBlockHeight), rejected block = $receivedBlock")
-//                convo.answerClose(byteArrayOf(ACTUAl_HEIGHT_MISMATCH))
-//                return
-//            }
 
             convo.answerClose(byteArrayOf(SUCCESS_THANK_YOU))
 
@@ -483,7 +533,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         }
     }
 
-    private fun newBlockConversation_server_default(convo: P2LConversation, block: Block) {
+    private fun newBlockConversation_client_default(convo: P2LConversation, block: Block) {
         var result = convo.answerExpectMsg(convo.encode(block.proof.raw, block.merkleRoot.raw)).nextByte()
         if(result != CONTINUE) {
             convo.close()
@@ -491,7 +541,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         } else {
             convo.setA(5000) //can take a while - even longer than this even, which is why we propose the next line amendment to the conversation protocol:
             //todo  with pause we receive a receipt for our message, but then continue to wait until a certain - much longer - timeout - until we receive the actual computed message
-            result = convo.answerExpectMsg/*AfterPause*/(block.map { it.raw }.spread(block.size, Hash.length())/*, timeout = 10000*/).nextByte() //todo restrict block size, otherwise this will/might be too long... - or built in convo functionality for long messages
+            result = convo.answerExpectMsg/*AfterPause*/(block.map { it.raw }.spread(block.size, Hash.length())/*, timeout = 10000*/).nextByte() //todo this will/might be too long... - built in convo functionality for long messages
             if (result == SUCCESS_THANK_YOU) {
                 //NO PROBLEM
                 convo.close()
