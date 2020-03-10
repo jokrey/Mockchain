@@ -140,7 +140,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         try {
             val convo = p2lNode.convo(TX_REQUEST, link)
                 instance.log("requesting $txp from $link")
-            val receivedRaw = convo.initExpectClose(txp.raw)
+            val receivedRaw = convo.initExpectDataClose(txp.raw)
 //                instance.log("receivedRaw = ${receivedRaw.toList()}")
             if(receivedRaw.isEmpty()) return null
             return Transaction.decode(receivedRaw, true)
@@ -170,11 +170,11 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     fun catchMeUpTo(vararg peers: SocketAddress) : Boolean {
         for(peer in peers) {
             val convo = p2lNode.convo(CATCH_ME_UP_IF_YOU_CAN, peer)
-            val m0 = convo.initExpectMsg(convo.encode(instance.chain.blockCount()))
+            val m0 = convo.initExpect(convo.encode(instance.chain.blockCount()))
             val result = m0.nextByte()
             val remoteBlockHeight = m0.nextInt()
             if (result == WILL_PROVIDE_CATCH_UP) {
-                val m1 = convo.answerExpectMsg(byteArrayOf(ACCEPT_FORK))
+                val m1 = convo.answerExpect(byteArrayOf(ACCEPT_FORK))
                 try {
                     acceptFork_Protocol(convo, remoteBlockHeight, m1)
                     return true
@@ -189,7 +189,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             val remoteBlockHeight = m0.nextInt()
             val ownBlockHeight = instance.chain.blockCount()
             if (instance.consensus.allowProvideCatchUpTo(convo.peer, ownBlockHeight, remoteBlockHeight)) {
-                val result = convo.answerExpectMsg(convo.encode(WILL_PROVIDE_CATCH_UP, ownBlockHeight)).nextByte()
+                val result = convo.answerExpect(convo.encode(WILL_PROVIDE_CATCH_UP, ownBlockHeight)).nextByte()
                 if(result == ACCEPT_FORK)
                     provideFork_Protocol(convo, instance.chain.blockCount())
                 else
@@ -241,7 +241,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         instance.log("received unconfirmed block header part = (newBlockHash=$newBlockHash, previousBlockHash=$previousBlockHash, newBlockHeight=$newBlockHeight)")
 
         if (instance.isInPausedRecordMode) {
-            val m1 = convo.answerExpectMsg(byteArrayOf(CONTINUE_ALL_AT_ONCE))
+            val m1 = convo.answerExpect(byteArrayOf(CONTINUE_ALL_AT_ONCE))
             newBlockConversation_server_pathRecordMode(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
         } else {
             instance.requireNonPaused {
@@ -255,11 +255,11 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                     } else {
                         instance.log("remote submitted a block ahead(ourHeight=$ownBlockHeight, remoteHeight=$newBlockHeight). Beginning fork protocol")
 
-                        val m1 = convo.answerExpectMsg(byteArrayOf(ACCEPT_FORK))
+                        val m1 = convo.answerExpect(byteArrayOf(ACCEPT_FORK))
                         acceptFork_Protocol(convo, newBlockHeight, m1)
                     }
                 } else {
-                    val m1 = convo.answerExpectMsg(byteArrayOf(CONTINUE))
+                    val m1 = convo.answerExpect(byteArrayOf(CONTINUE))
                     newBlockConversation_server_default(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
                 }
             }
@@ -277,7 +277,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         val newBlockHeight = instance.chain.blockCount()
         val en_m0 = convo.encode(block.getHeaderHash().raw, block.previousBlockHash?.raw ?: byteArrayOf(), newBlockHeight)
 //        println("en_m0 = ${en_m0.asBytes().toList()}")
-        result = convo.initExpectMsg(en_m0).nextByte()
+        result = convo.initExpect(en_m0).nextByte()
         when (result) {
             ACCEPT_FORK -> provideFork_Protocol(convo, newBlockHeight)
             CONTINUE -> newBlockConversation_client_default(convo, block)
@@ -305,7 +305,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     }
 
     private fun newBlockConversation_client_blockInOne(convo: P2LConversation, block: Block) {
-        val result = convo.answerExpectMsg(convo.encode(block.proof.raw,(block.map { it.raw }.spread(block.size, Hash.length())))).nextByte()
+        val result = convo.answerExpect(convo.encode(block.proof.raw,(block.map { it.raw }.spread(block.size, Hash.length())))).nextByte()
         if(result == SUCCESS_THANK_YOU) {
             //NO PROBLEM
             convo.close()
@@ -340,7 +340,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
                 if (forkIndex < 0 && remoteBlocksIndex != 0) {
 //                    println("acceptFork - waiting for hash chain result")
-                    hashChainQueryAnswerResult = convo.answerExpectMsg(byteArrayOf(FORK_CONTINUE))
+                    hashChainQueryAnswerResult = convo.answerExpect(byteArrayOf(FORK_CONTINUE))
                 } else {
                     //forkIndex can be -1 here, which is fine if the chains are completely different
                     //-  secondary check based on validated data
@@ -351,7 +351,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
                         //begin transfer of actual blocks, incrementally validate and query missing txs
 //                        println("acceptFork - waiting for block result")
-                        var blockQueryResult = convo.answerExpect(convo.encode(FORK_FOUND, forkIndex))
+                        var blockQueryResult = convo.answerExpectData(convo.encode(FORK_FOUND, forkIndex))
 
                         instance.chain.store.deleteAllToBlockIndex(forkIndex)
                         val forkApp = if(forkIndex+1 == ownBlockHeight) instance.app else instance.app.newEqualInstance()
@@ -387,7 +387,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                                 }
 
                                 if (!isLast) {
-                                    blockQueryResult = convo.answerExpect(byteArrayOf(FORK_NEXT_BLOCK_PLEASE))
+                                    blockQueryResult = convo.answerExpectData(byteArrayOf(FORK_NEXT_BLOCK_PLEASE))
                                 } else {
                                     convo.answerClose(byteArrayOf(FORK_COMPLETE_THANKS))
 
@@ -430,7 +430,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 encoder.encodeFixed(blockHash.raw)
             }
 //            println("provideFork - waiting for result")
-            val resultMsg = convo.answerExpectMsg(encoder)
+            val resultMsg = convo.answerExpect(encoder)
             var result = resultMsg.nextByte()
 //            println("provideFork - result=$result")
             if(result == FORK_CONTINUE) {
@@ -442,7 +442,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 //start sending blocks from fork index until start block count (do not send too many blocks, they will have likely been recorded by the forked remote and would cause issues
                 for(i in forkIndex+1 until blockCountUpTop) {
                     val blockAtI = instance.chain.queryBlock(i)
-                    result = convo.answerExpectMsg(blockAtI.encode()).nextByte()
+                    result = convo.answerExpect(blockAtI.encode()).nextByte()
                     if(result == FORK_NEXT_BLOCK_PLEASE) continue
                     else if(result == FORK_COMPLETE_THANKS) {
                         if(i == blockCountUpTop-1)
@@ -484,7 +484,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         instance.log("validated proof, downloading txps of remote block")
 
 
-        val m2_txps = convo.answerExpectMsg(byteArrayOf(CONTINUE))
+        val m2_txps = convo.answerExpect(byteArrayOf(CONTINUE))
         val txps = m2_txps.asBytes().split(Hash.length()).map { TransactionHash(it, true) }
 //        todo    convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
 
@@ -534,14 +534,14 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     }
 
     private fun newBlockConversation_client_default(convo: P2LConversation, block: Block) {
-        var result = convo.answerExpectMsg(convo.encode(block.proof.raw, block.merkleRoot.raw)).nextByte()
+        var result = convo.answerExpect(convo.encode(block.proof.raw, block.merkleRoot.raw)).nextByte()
         if(result != CONTINUE) {
             convo.close()
             handleBlockRelayError(result)
         } else {
             convo.setA(5000) //can take a while - even longer than this even, which is why we propose the next line amendment to the conversation protocol:
             //todo  with pause we receive a receipt for our message, but then continue to wait until a certain - much longer - timeout - until we receive the actual computed message
-            result = convo.answerExpectMsg/*AfterPause*/(block.map { it.raw }.spread(block.size, Hash.length())/*, timeout = 10000*/).nextByte() //todo this will/might be too long... - built in convo functionality for long messages
+            result = convo.answerExpect/*AfterPause*/(block.map { it.raw }.spread(block.size, Hash.length())/*, timeout = 10000*/).nextByte() //todo this will/might be too long... - built in convo functionality for long messages
             if (result == SUCCESS_THANK_YOU) {
                 //NO PROBLEM
                 convo.close()
