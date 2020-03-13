@@ -225,7 +225,7 @@ class DistributedTests {
         }
         sleep(1000)
         instance1.consensus.performConsensusRound(false)
-        sleep(1000)
+        sleep(10000)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), *instance2.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
 
@@ -283,7 +283,7 @@ class DistributedTests {
             sleep(100)
             instance1.consensus.performConsensusRound(false)
         }
-        sleep(1000)
+        sleep(10000)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), *instance2.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
 
@@ -406,7 +406,7 @@ class DistributedTests {
 
         instance1.commitToMemPool(tx7)
         instance1.consensus.performConsensusRound(false)
-        sleep(2000)
+        sleep(10000)
 
         helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
 //        helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2, tx3, tx4, tx5, tx6, tx7)

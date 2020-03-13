@@ -128,7 +128,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 //        println("transactionQueries(${transactionQueries.size}) = ${transactionQueries}")
         val results = ArrayList<Transaction>(transactionQueries.size)
         for(t in transactionQueries) {
-            val r = t.get()
+            val r = t.orNull
             if(r!=null)
                 results.add(r)
         }
@@ -282,7 +282,10 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             ACCEPT_FORK -> provideFork_Protocol(convo, newBlockHeight)
             CONTINUE -> newBlockConversation_client_default(convo, block)
             CONTINUE_ALL_AT_ONCE -> newBlockConversation_client_blockInOne(convo, block)
-            else -> handleBlockRelayError(result)
+            else -> {
+                convo.close()
+                handleBlockRelayError(result)
+            }
         }
     }
 
@@ -352,6 +355,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                         //begin transfer of actual blocks, incrementally validate and query missing txs
 //                        println("acceptFork - waiting for block result")
                         var blockQueryResult = convo.answerExpectData(convo.encode(FORK_FOUND, forkIndex))
+                        convo.pause()
 
                         instance.chain.store.deleteAllToBlockIndex(forkIndex)
                         val forkApp = if(forkIndex+1 == ownBlockHeight) instance.app else instance.app.newEqualInstance()
@@ -429,25 +433,25 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 val blockHash = instance.chain.queryBlockHash(hashChainDownCounter)
                 encoder.encodeFixed(blockHash.raw)
             }
-//            println("provideFork - waiting for result")
+            println("provideFork - waiting for result")
             val resultMsg = convo.answerExpect(encoder)
             var result = resultMsg.nextByte()
-//            println("provideFork - result=$result")
+            println("provideFork - result=$result")
             if(result == FORK_CONTINUE) {
                 continue
             } else if(result == FORK_FOUND) {
                 val forkIndex = resultMsg.nextInt()
-                convo.setA(10000) //other side will requery tx which can take a while - todo implement pause convo functionality on remote
 
                 //start sending blocks from fork index until start block count (do not send too many blocks, they will have likely been recorded by the forked remote and would cause issues
                 for(i in forkIndex+1 until blockCountUpTop) {
                     val blockAtI = instance.chain.queryBlock(i)
-                    result = convo.answerExpect(blockAtI.encode()).nextByte()
+                    result = convo.answerExpectAfterPause(blockAtI.encode(), 10_000).nextByte() //todo afterPause in this context not properly tested
                     if(result == FORK_NEXT_BLOCK_PLEASE) continue
                     else if(result == FORK_COMPLETE_THANKS) {
-                        if(i == blockCountUpTop-1)
+                        if(i == blockCountUpTop-1) {
+                            convo.close() //all good
                             return
-                        else {
+                        } else {
                             convo.close()
                             handleBlockRelayError(result) //not an error code, BUT TOO EARLY
                             return
@@ -486,7 +490,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
 
         val m2_txps = convo.answerExpect(byteArrayOf(CONTINUE))
         val txps = m2_txps.asBytes().split(Hash.length()).map { TransactionHash(it, true) }
-//        todo    convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
+        convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
 
         //ensure all tx available (i.e. in own mempool)
         val queriedTransactions = queryAllTx(txps, instance.memPool, convo.peer) //do not allow query from chain here.. potential dos exploitable performance leak
@@ -539,9 +543,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             convo.close()
             handleBlockRelayError(result)
         } else {
-            convo.setA(5000) //can take a while - even longer than this even, which is why we propose the next line amendment to the conversation protocol:
-            //todo  with pause we receive a receipt for our message, but then continue to wait until a certain - much longer - timeout - until we receive the actual computed message
-            result = convo.answerExpect/*AfterPause*/(block.map { it.raw }.spread(block.size, Hash.length())/*, timeout = 10000*/).nextByte() //todo this will/might be too long... - built in convo functionality for long messages
+            result = convo.answerExpectAfterPause(block.map { it.raw }.spread(block.size, Hash.length()), 10000).nextByte() //todo afterPause in this context not properly tested
             if (result == SUCCESS_THANK_YOU) {
                 //NO PROBLEM
                 convo.close()
