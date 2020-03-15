@@ -7,7 +7,7 @@ import jokrey.utilities.encoder.as_union.li.bytes.MessageEncoder
 import jokrey.utilities.network.link2peer.P2LMessage
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
-import jokrey.utilities.network.link2peer.node.core.P2LConversation
+import jokrey.utilities.network.link2peer.node.conversation.P2LConversation
 import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.network.link2peer.util.TimeoutException
