@@ -19,6 +19,12 @@ import kotlin.concurrent.write
  *
  * Should be used exactly like the Mockchain. To the user it is only extended by the connect methods that allow connecting to peers by a link.
  * Additionally it is discouraged to use the ManualConsensusAlgorithm.
+ *
+ *
+ * Not one chain to rule them all. For each problem a different chain.
+ *   In certain(granted: rare) situations it can even be reasonable to run 2 chains from within the same program
+ *   It can allow fine grained control for txs throughput and security. I.e. different tx, different stakeholder(different security clearances, some vote on that some vote on that)
+ *
  */
 class Nockchain(app: Application,
                 val selfLink: P2Link,

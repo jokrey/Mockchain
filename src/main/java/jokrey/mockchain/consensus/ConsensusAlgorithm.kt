@@ -16,6 +16,8 @@ import java.net.SocketAddress
  *
  * Can react to external changes such as new transactions being added to the mem pool.
  *
+ * NOTE: Synchronous consensus algorithms like BFT PoS may be incompatible with this interface.
+ *
  * @author jokrey
  */
 abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable {

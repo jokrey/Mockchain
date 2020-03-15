@@ -35,6 +35,23 @@ val availableApps = arrayOf(
     Currency(),
     CurrencyWithHistory(),
     SupplyChain()
+
+    /*
+    todo Blockchain application perfectly usable with Squash:
+        * Shipment tracker - only the receiver of a shipment can create a signed transaction which ends the sequence
+            (Similar to the supply chain, but from a consumer/customer benefit position)
+        * Bitcoin squash spent transactions - for a better, more intelligent pruning
+        * Chat(2 way) - each chat message from a single source uses sequence-parts, a sequence-end can only be attached by the other party (that way it is ensured that a message is seen before deleted
+    todo General Blockchain application ideas:
+         Blockchain for semi centralized qualification tracking:
+      Use case:
+          Qualifiers can apply to be allowed to credit qualifications to people
+          Anyone can run a query with a name, a date of birth and birth location - and a alleged qualification
+                The system will answer yes or no - potentially who credited the qualification
+      The full blockchain has to be hidden so private data is not leaked - or a key system
+          i.e. every record is optionally encrypted with a simple key it has to also be added to the query
+
+     */
 )
 
 val defaultPair = UserAuthHelper.generateKeyPair() //todo - maybe slow on some machines
