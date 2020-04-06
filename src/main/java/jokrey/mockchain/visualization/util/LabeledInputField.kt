@@ -1,5 +1,6 @@
 package jokrey.mockchain.visualization.util
 
+import java.awt.Dimension
 import java.awt.Font
 import java.awt.event.ActionListener
 import javax.swing.BoxLayout
@@ -10,14 +11,16 @@ import javax.swing.event.DocumentEvent
 import javax.swing.event.DocumentListener
 import javax.swing.text.Document
 
-class LabeledInputField(labelText: String, tf_columns: Int) : JPanel() {
+class LabeledInputField(labelText: String, tf_columns: Int, axis: Int = BoxLayout.X_AXIS) : JPanel() {
     private val l: JLabel
     private val tf: JTextField
 
     init {
-        layout = BoxLayout(this, BoxLayout.X_AXIS)
+        layout = BoxLayout(this, axis)
         l = JLabel(labelText)
-        tf = JTextField(tf_columns)
+        tf = object : JTextField(tf_columns) {
+            override fun getMaximumSize() = Dimension(super.getMaximumSize().width, super.getPreferredSize().height)
+        }
         add(l)
         add(tf)
     }
@@ -33,10 +36,16 @@ class LabeledInputField(labelText: String, tf_columns: Int) : JPanel() {
         l.text = s
     }
 
-    fun setText(text: String?) {
-        tf.text = text
-    }
-    fun getText() : String = tf.text
+    var text: String
+        get() = tf.text
+        set(value) {tf.text = value}
+
+    override fun isEnabled() = tf.isEnabled
+    override fun setEnabled(enabled: Boolean) { tf.isEnabled = enabled }
+
+    var isEditable: Boolean
+        get() = tf.isEditable
+        set(value) {tf.isEditable = value}
 
     fun setDocument(d: Document) {
         tf.document = d

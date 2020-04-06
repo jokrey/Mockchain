@@ -5,13 +5,10 @@ import jokrey.mockchain.Nockchain
 import jokrey.mockchain.application.examples.calculator.SingleStringCalculator
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
-import jokrey.utilities.animation.engine.AnimationEngine
 import jokrey.utilities.animation.implementations.swing.display.AnimationJPanel
 import jokrey.utilities.animation.implementations.swing.display.Swing_FullScreenStarter
 import jokrey.utilities.animation.implementations.swing.pipeline.AnimationDrawerSwing
 import jokrey.utilities.animation.pipeline.AnimationPipeline
-import jokrey.utilities.animation.util.AEColor
-import jokrey.utilities.animation.util.AERect
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -32,8 +29,7 @@ fun main() {
  *
  * @author jokrey
  */
-class VisualizationFrame(instance: Mockchain) {
-    var instance = instance
+class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true) {
     var app = instance.app as VisualizableApp
     val engine: TxVisualizationEngine = TxVisualizationEngine(instance, app, app)
     val pipe: AnimationPipeline
@@ -105,7 +101,8 @@ class VisualizationFrame(instance: Mockchain) {
         }
         footerPanel.add(tickControlPanel)
         footerPanel.add(addTxJB)
-        footerPanel.add(applicationChooserJB)
+        if(allowSwitchApp)
+            footerPanel.add(applicationChooserJB)
         frame.add(footerPanel, BorderLayout.SOUTH)
 
         val headerPanel = JPanel(BorderLayout())
@@ -119,7 +116,6 @@ class VisualizationFrame(instance: Mockchain) {
         headerPanel.add(headerMinPanel, BorderLayout.SOUTH)
         frame.add(headerPanel, BorderLayout.NORTH)
 
-        frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
         val screenSize = Toolkit.getDefaultToolkit().screenSize
         frame.size = Dimension((screenSize.width*0.75).toInt(), (screenSize.height*0.75).toInt())
         Swing_FullScreenStarter.centerOnMouseScreen(frame)
@@ -147,9 +143,9 @@ private fun getTickControlPanel(frame: VisualizationFrame) :JPanel {
         frame.engine.calculateTick()
     }
     epochNumberInputField.setDocument(IntegersOnlyDocument())
-    epochNumberInputField.setText("50")
+    epochNumberInputField.text = "50"
     epochJB.addActionListener {
-        for(i in 0 until epochNumberInputField.getText().toInt())
+        for(i in 0 until epochNumberInputField.text.toInt())
             frame.engine.calculateTick()
     }
 

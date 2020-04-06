@@ -3,7 +3,7 @@ package jokrey.mockchain.application.examples.supplychain
 import jokrey.mockchain.storage_classes.Dependency
 import jokrey.mockchain.storage_classes.DependencyType
 import jokrey.mockchain.storage_classes.Transaction
-import jokrey.mockchain.visualization.util.UserAuthHelper
+import jokrey.utilities.misc.RSAAuthHelper
 import java.security.KeyPair
 import java.util.*
 
@@ -11,7 +11,7 @@ import java.util.*
  * Between first and last way-point of a route. Can delay a shipment but will otherwise just receive it and send it to the next way-point.
  */
 open class SupplyRouteMember(val routeName: String, internal val atWayPoint: Int, internal val totalWayPoints:Int, internal val companyName: String, app: SupplyChain) {
-    internal val authenticationKeys: KeyPair = UserAuthHelper.generateKeyPair()
+    internal val authenticationKeys: KeyPair = RSAAuthHelper.generateKeyPair()
 
     internal var currentState = MemberState.WAITING
     internal var previous:Transaction? = null

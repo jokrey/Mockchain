@@ -32,7 +32,7 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
     connectToPanel.add(connectToInputField, BorderLayout.CENTER)
     connectToPanel.add(connectToButton, BorderLayout.EAST)
 
-    val showConnectionsButton = JButton("show connections(0)")
+    val showConnectionsButton = JButton("show connections(${node.p2lNode.establishedConnections.size})")
 
     node.p2lNode.addConnectionDroppedListener {
         showConnectionsButton.text = "show connections(${node.p2lNode.establishedConnections.size})"
@@ -46,8 +46,7 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
     }
 
     val connectToCallback = ActionListener {
-        val split = connectToInputField.text.split(":")
-        node.connect(P2Link.createPublicLink(split[0], split[1].toInt()))
+        node.connect(P2Link.fromString(connectToInputField.text))
         connectToInputField.text = ""
     }
     connectToButton.addActionListener(connectToCallback)

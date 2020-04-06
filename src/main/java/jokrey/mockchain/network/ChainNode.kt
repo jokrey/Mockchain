@@ -28,9 +28,8 @@ private const val CATCH_ME_UP_IF_YOU_CAN: Int = 4
  *
  * Its usage is purely internal. Only connecting requires user input, please use the wrapper methods for that.
  */
-internal class ChainNode(selfLink: P2Link, peerLimit:Int,
-                private val instance: Nockchain) {
-    internal val p2lNode = P2LNode.create(selfLink, peerLimit)
+internal class ChainNode(internal val p2lNode: P2LNode, private val instance: Nockchain) {
+    constructor(selfLink: P2Link, peerLimit:Int, instance: Nockchain) : this(P2LNode.create(selfLink, peerLimit), instance)
     private val pool = P2LThreadPool(32, 64)
 
     /** @see P2LNode.establishConnections */
@@ -45,6 +44,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         p2lNode.addBroadcastListener {
             when(it.header.type) {
                 TX_BROADCAST_TYPE -> {
+                    //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - <2 packages.
                     val receivedTx = Transaction.decode(it.asBytes())
                     instance.log("received tx = $receivedTx - from: ${it.header.sender}")
                     instance.commitToMemPool(receivedTx, false)
@@ -53,6 +53,8 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         }
 
         p2lNode.registerConversationFor(TX_REQUEST) { convo, m0 ->
+            //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - <2 packages.
+
             val requestedTxp = TransactionHash(m0.asBytes(), true)
 //            instance.log("received request for $requestedTxp")
             val queriedTx = instance.getUnsure(requestedTxp) //may already be persisted, so check chain too
@@ -155,10 +157,10 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         val receipts = p2lNode.sendBroadcastWithReceipts(P2LMessage.Factory.createBroadcast(p2lNode.selfLink, TX_BROADCAST_TYPE, tx.encode()))
 
         txBroadcastCounter++
-//        instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")
-//        receipts.callMeBack {
-//            instance.log("success counter for broadcast-memPool-tx(id:$txBroadcastCounter): $it/$numConnected")
-//        }
+        instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")
+        receipts.callMeBack {
+            instance.log("success counter for broadcast-memPool-tx(id:$txBroadcastCounter): $it/$numConnected")
+        }
     }
 
 
@@ -308,7 +310,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
     }
 
     private fun newBlockConversation_client_blockInOne(convo: P2LConversation, block: Block) {
-        val result = convo.answerExpect(convo.encode(block.proof.raw,(block.map { it.raw }.spread(block.size, Hash.length())))).nextByte()
+        val result = convo.answerExpect(convo.encode(block.proof.raw,(block.map { it.raw }.spread(block.size, Hash.length())))).nextByte()//todo is the block always short enough to properly send like this? BLOCK MAXIMUM
         if(result == SUCCESS_THANK_YOU) {
             //NO PROBLEM
             convo.close()
@@ -396,7 +398,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                                     convo.answerClose(byteArrayOf(FORK_COMPLETE_THANKS))
 
                                     if(instance.app !== forkApp) {
-//                                 todo   instance.app.cleanUpAndDie()
+                                        instance.app.cleanUpAfterForkInvalidatedThisState()
                                         instance.app = forkApp
                                     }
                                     instance.chain.store.commit()
@@ -445,7 +447,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
                 //start sending blocks from fork index until start block count (do not send too many blocks, they will have likely been recorded by the forked remote and would cause issues
                 for(i in forkIndex+1 until blockCountUpTop) {
                     val blockAtI = instance.chain.queryBlock(i)
-                    result = convo.answerExpectAfterPause(blockAtI.encode(), 10_000).nextByte() //todo afterPause in this context not properly tested
+                    result = convo.answerExpectAfterPause(blockAtI.encode(), 10_000).nextByte() //todo is the block always short enough to properly send like this? BLOCK MAXIMUM
                     if(result == FORK_NEXT_BLOCK_PLEASE) continue
                     else if(result == FORK_COMPLETE_THANKS) {
                         if(i == blockCountUpTop-1) {
@@ -493,6 +495,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
         convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
 
         //ensure all tx available (i.e. in own mempool)
+        //todo - should the tx just be sent in a long message directly??
         val queriedTransactions = queryAllTx(txps, instance.memPool, convo.peer) //do not allow query from chain here.. potential dos exploitable performance leak
         if(txps.size > queriedTransactions.size) {
             instance.log("failed to query x=${txps.size - queriedTransactions.size} missing txs, rejected block($newBlockHeight) hash= $newBlockHash")
@@ -543,7 +546,7 @@ internal class ChainNode(selfLink: P2Link, peerLimit:Int,
             convo.close()
             handleBlockRelayError(result)
         } else {
-            result = convo.answerExpectAfterPause(block.map { it.raw }.spread(block.size, Hash.length()), 10000).nextByte() //todo afterPause in this context not properly tested
+            result = convo.answerExpectAfterPause(block.map { it.raw }.spread(block.size, Hash.length()), 10000).nextByte() //todo is the block always short enough to properly send like this? BLOCK MAXIMUM
             if (result == SUCCESS_THANK_YOU) {
                 //NO PROBLEM
                 convo.close()

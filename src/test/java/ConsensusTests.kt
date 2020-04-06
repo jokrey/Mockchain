@@ -4,7 +4,7 @@ import jokrey.mockchain.consensus.ProofOfStaticStakeConsensusCreator
 import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.storage_classes.Transaction
 import jokrey.mockchain.visualization.util.EmptyApplication
-import jokrey.mockchain.visualization.util.UserAuthHelper
+import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.bitsandbytes.BitHelper
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.simple.data_structure.queue.ConcurrentQueueTest.sleep
@@ -31,8 +31,8 @@ class ConsensusTests {
 
     @Test
     fun possTest_1node() {
-        val keypair = UserAuthHelper.generateKeyPair()
-        val instance = Mockchain(EmptyApplication(), consensus = ProofOfStaticStakeConsensusCreator(1000, arrayOf(keypair.public.encoded), keypair))
+        val keypair = RSAAuthHelper.generateKeyPair()
+        val instance = Mockchain(EmptyApplication(), consensus = ProofOfStaticStakeConsensusCreator(1000, listOf(keypair.public.encoded), keypair))
 
         for (i in 1..50)
             instance.commitToMemPool(Transaction(BitHelper.getBytes(i)))
@@ -50,15 +50,15 @@ class ConsensusTests {
     }
 
     @Test fun possTest_3nodes() {
-        val keypair1 = UserAuthHelper.generateKeyPair()
-        val keypair2 = UserAuthHelper.generateKeyPair()
-        val keypair3 = UserAuthHelper.generateKeyPair()
-        val identities = arrayOf(keypair1.public.encoded, keypair2.public.encoded, keypair3.public.encoded)
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 43231),
+        val keypair1 = RSAAuthHelper.generateKeyPair()
+        val keypair2 = RSAAuthHelper.generateKeyPair()
+        val keypair3 = RSAAuthHelper.generateKeyPair()
+        val identities = listOf(keypair1.public.encoded, keypair2.public.encoded, keypair3.public.encoded)
+        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43231).toDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair1))
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 43232),
+        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43232).toDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair2))
-        val instance3 = Nockchain(EmptyApplication(), P2Link.createPublicLink("localhost", 43233),
+        val instance3 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43233).toDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair3))
         instance2.connect(instance1.selfLink, instance3.selfLink)
         instance1.connect(instance3.selfLink)

@@ -3,6 +3,8 @@ package jokrey.mockchain.visualization
 import jokrey.mockchain.consensus.*
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
+import jokrey.utilities.base64Decode
+import jokrey.utilities.base64Encode
 import java.lang.Exception
 import javax.swing.BoxLayout
 import javax.swing.JButton
@@ -31,15 +33,15 @@ fun getProofOfWorkControlPanel(frame: VisualizationFrame, consensus: ProofOfWork
     val difficultyInputField = LabeledInputField("difficulty ([1-20]): ", 3)
     difficultyInputField.toolTipText = "enter difficulty ( int between 1 and 20 ) - HAS TO BE THE SAME FOR ALL NODES"
     difficultyInputField.addTextChangeListener {
-        if(difficultyInputField.getText().isNotEmpty())
-            consensus.difficulty = difficultyInputField.getText().toInt()
+        if(difficultyInputField.text.isNotEmpty())
+            consensus.difficulty = difficultyInputField.text.toInt()
     }
 
     val minerIdentityInputField = LabeledInputField("miner identity (base64): ", 5)
     minerIdentityInputField.toolTipText = "enter miner identity as a base64 encoded string"
     minerIdentityInputField.addTextChangeListener {
         try {
-            consensus.minerIdentity = base64Decode(minerIdentityInputField.getText())
+            consensus.minerIdentity = base64Decode(minerIdentityInputField.text)
             minerIdentityInputField.setLabelText("miner identity (base64)")
         } catch(e: Exception) {
             minerIdentityInputField.setLabelText("miner identity (base64(!))")
@@ -56,8 +58,8 @@ fun getProofOfWorkControlPanel(frame: VisualizationFrame, consensus: ProofOfWork
     panel.add(minerIdentityInputField)
     panel.add(requestSquashCheckbox)
 
-    difficultyInputField.setText(consensus.difficulty.toString())
-    minerIdentityInputField.setText(base64Encode(consensus.minerIdentity))
+    difficultyInputField.text = (consensus.difficulty.toString())
+    minerIdentityInputField.text = (base64Encode(consensus.minerIdentity))
     requestSquashCheckbox.isSelected = consensus.requestSquash
 
     //todo - information such as: currently staged txs, current nonce
@@ -136,17 +138,17 @@ fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualC
     }
 
     consensusEveryNTicksInputField.setDocument(IntegersOnlyDocument())
-    consensusEveryNTicksInputField.setText(consensus.consensusEveryNTick.toString())
+    consensusEveryNTicksInputField.text = (consensus.consensusEveryNTick.toString())
     consensusEveryNTicksInputField.addTextChangeListener {
-        if(consensusEveryNTicksInputField.getText().isNotEmpty())
-            consensus.consensusEveryNTick = Integer.parseInt(consensusEveryNTicksInputField.getText())
+        if(consensusEveryNTicksInputField.text.isNotEmpty())
+            consensus.consensusEveryNTick = Integer.parseInt(consensusEveryNTicksInputField.text)
     }
 
     squashEveryNConsensusRoundsInputField.setDocument(IntegersOnlyDocument())
-    squashEveryNConsensusRoundsInputField.setText(consensus.squashEveryNRounds.toString())
+    squashEveryNConsensusRoundsInputField.text = (consensus.squashEveryNRounds.toString())
     squashEveryNConsensusRoundsInputField.addTextChangeListener {
-        if(squashEveryNConsensusRoundsInputField.getText().isNotEmpty())
-            consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.getText())
+        if(squashEveryNConsensusRoundsInputField.text.isNotEmpty())
+            consensus.squashEveryNRounds = Integer.parseInt(squashEveryNConsensusRoundsInputField.text)
     }
 
     val panel = JPanel()

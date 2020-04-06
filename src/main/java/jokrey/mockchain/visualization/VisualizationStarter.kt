@@ -8,6 +8,7 @@ import jokrey.mockchain.application.examples.calculator.SingleStringCalculator
 import jokrey.mockchain.application.examples.currency.Currency
 import jokrey.mockchain.application.examples.currency.CurrencyWithHistory
 import jokrey.mockchain.application.examples.sensornet.SensorNetAnalyzer
+import jokrey.mockchain.application.examples.sharedrandomness.SharedRandomness
 import jokrey.mockchain.application.examples.supplychain.SupplyChain
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
@@ -16,12 +17,9 @@ import jokrey.mockchain.consensus.SimpleProofOfWorkConsensusCreator
 import jokrey.mockchain.storage_classes.NonPersistentStorage
 import jokrey.mockchain.storage_classes.PersistentStorage
 import jokrey.mockchain.storage_classes.StorageModel
-import jokrey.mockchain.visualization.util.LabeledInputField
-import jokrey.mockchain.visualization.util.UserAuthHelper
+import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.network.link2peer.P2Link
-import java.awt.BorderLayout
 import java.awt.Component
-import java.awt.Dimension
 import java.util.concurrent.CancellationException
 import javax.swing.*
 import javax.swing.filechooser.FileSystemView
@@ -34,7 +32,8 @@ val availableApps = arrayOf(
     MashedCalculator(1, maxDependencies = 1),
     Currency(),
     CurrencyWithHistory(),
-    SupplyChain()
+    SupplyChain(),
+    SharedRandomness()
 
     /*
     todo Blockchain application perfectly usable with Squash:
@@ -54,11 +53,11 @@ val availableApps = arrayOf(
      */
 )
 
-val defaultPair = UserAuthHelper.generateKeyPair() //todo - maybe slow on some machines
+val defaultPair = RSAAuthHelper.generateKeyPair() //todo - maybe slow on some machines
 val availableConsensusAlgorithms = arrayOf(
         ManualConsensusAlgorithmCreator(),
         SimpleProofOfWorkConsensusCreator(4, byteArrayOf(1,2,3)),
-        ProofOfStaticStakeConsensusCreator(1, arrayOf(defaultPair.public.encoded), defaultPair)
+        ProofOfStaticStakeConsensusCreator(1, listOf(defaultPair.public.encoded), defaultPair)
 )
 
 fun main() {
@@ -72,8 +71,8 @@ fun main() {
 
     buildNewInstanceConfiguration()
 
-//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45221), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
-//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createPublicLink("localhost", 45222), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createLocalLink(45221).toDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createLocalLink(45222).toDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
 }
 
 fun startApplicationChooserOnly(current: VisualizableApp? = null, frame: Component? = null) {
@@ -83,15 +82,25 @@ fun startApplicationChooserOnly(current: VisualizableApp? = null, frame: Compone
 
 fun buildNewInstanceConfiguration(currentApp: VisualizableApp? = null, currentConsensus: ConsensusAlgorithmCreator? = null, frame: Component? = null) {
     val app = createChooser(availableApps, currentApp, frame) as VisualizableApp
+    val instance = startChainInstanceChooser(app, currentConsensus, frame)
+    VisualizationFrame(instance)
+}
+
+fun startChainInstanceChooser(app: VisualizableApp, currentConsensus: ConsensusAlgorithmCreator? = null, frame: Component? = null): Mockchain {
     val consensus = createChooser(availableConsensusAlgorithms, currentConsensus, frame) as ConsensusAlgorithmCreator
+    return startChainInstanceChooser(frame, app, consensus)
+}
+
+fun startChainInstanceChooser(frame: Component? = null, app: VisualizableApp, consensus: ConsensusAlgorithmCreator): Mockchain {
     val storageModel = startStorageModelChooser(frame)
     val networkLink = startNetworkChooser(frame)
 
-    if(networkLink == null)
-        VisualizationFrame(Mockchain(app, storageModel, consensus))
+    return if (networkLink == null)
+        Mockchain(app, storageModel, consensus)
     else
-        VisualizationFrame(Nockchain(app, networkLink, storageModel, consensus))
+        Nockchain(app, networkLink, storageModel, consensus)
 }
+
 fun startMockVisualizationOf(app: VisualizableApp) {
     VisualizationFrame(Mockchain(app))
 }
@@ -103,7 +112,7 @@ fun startNetworkChooser(frame: Component? = null): P2Link? {
             ?: return null
 
     val split = result.split(":")
-    return P2Link.createPublicLink(split[0], split[1].toInt())
+    return P2Link.createDirectLink(split[0], split[1].toInt())
 }
 
 
@@ -128,54 +137,4 @@ fun startStorageModelChooser(frame: Component? = null) : StorageModel {
         NonPersistentStorage()
     else
         throw CancellationException()
-}
-
-
-fun createChooser(options: Array<out InteractivelyCreatableClass>, current: InteractivelyCreatableClass? = null, frame: Component? = null): InteractivelyCreatableClass {
-    val content = object : JPanel(BorderLayout()) {
-        override fun getPreferredSize() = Dimension(600, 200)
-    }
-
-    val paramsPanel = JPanel()
-    paramsPanel.layout = BoxLayout(paramsPanel, BoxLayout.X_AXIS)
-    content.add(paramsPanel, BorderLayout.CENTER)
-
-    val nameChooser = JComboBox(options.map { it::class.java.simpleName }.toTypedArray())
-    nameChooser.addActionListener {
-        val selectedApp = options[nameChooser.selectedIndex]
-
-        val paramNames = selectedApp.getCreatorParamNames()
-
-        paramsPanel.removeAll()
-        paramsPanel.isVisible = false
-        if(paramNames.isEmpty()) {
-        } else {
-            for(paramName in paramNames) {
-                paramsPanel.add(LabeledInputField(paramName, 5))
-            }
-            paramsPanel.isVisible = true
-        }
-    }
-    content.add(nameChooser, BorderLayout.NORTH)
-
-    if(current != null) {
-        nameChooser.selectedItem = current::class.java.simpleName
-        for ((i, paramInput) in paramsPanel.components.withIndex())
-            if (paramInput is LabeledInputField)
-                paramInput.setText(current.getCurrentParamContentForEqualCreation()[i])
-    } else {
-        nameChooser.selectedIndex = 0
-    }
-
-    val result = JOptionPane.showConfirmDialog(frame, content, "", JOptionPane.OK_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE)
-
-    if(result != 0) throw CancellationException()
-
-    val selectedApp = options[nameChooser.selectedIndex]
-    val params = ArrayList<String>()
-    for(paramInput in paramsPanel.components)
-        if(paramInput is LabeledInputField)
-            params.add(paramInput.getText())
-
-    return selectedApp.createNewInstance(*params.toTypedArray())
 }

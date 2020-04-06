@@ -7,7 +7,7 @@ import jokrey.mockchain.network.ChainNode
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
-import java.lang.IllegalArgumentException
+import java.util.*
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -26,13 +26,29 @@ import kotlin.concurrent.write
  *   It can allow fine grained control for txs throughput and security. I.e. different tx, different stakeholder(different security clearances, some vote on that some vote on that)
  *
  */
-class Nockchain(app: Application,
-                val selfLink: P2Link,
+class Nockchain : Mockchain {
+    constructor(app: Application,
+                p2lNode: P2LNode,
                 store: StorageModel = NonPersistentStorage(),
-                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.bytesRepresentation)) : Mockchain(app, store, consensus) {
-    val blockRecorder = BlockRecorder(this)
-    internal val node = ChainNode(selfLink, 10, this)
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, p2lNode.selfLink.bytesRepresentation)) : super(app, store, consensus) {
+        node = ChainNode(p2lNode, this)
+        this.selfLink = p2lNode.selfLink
+    }
+    constructor(app: Application,
+                selfLink: P2Link,
+                store: StorageModel = NonPersistentStorage(),
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.bytesRepresentation)) : super(app, store, consensus) {
+        node = ChainNode(selfLink, 10, this)
+        this.selfLink = selfLink
+    }
 
+    val blockRecorder = BlockRecorder(this)
+    internal val node: ChainNode
+    val selfLink: P2Link
+
+    fun connect(links: List<P2Link>, catchup: Boolean = false) {
+        connect(links = *links.toTypedArray(), catchup = catchup)
+    }
     /** @see P2LNode.establishConnections */
     fun connect(vararg links: P2Link, catchup: Boolean = false) {
         if(links.isEmpty()) return
