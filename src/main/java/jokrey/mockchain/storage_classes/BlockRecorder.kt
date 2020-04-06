@@ -2,6 +2,7 @@ package jokrey.mockchain.storage_classes
 
 import jokrey.mockchain.Nockchain
 import java.lang.IllegalStateException
+import java.net.InetSocketAddress
 import java.net.SocketAddress
 
 class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
@@ -31,7 +32,7 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
     }
 
     private fun addRecordedBlock(index:Int, rb: RecordedBlock) {
-        val fallbacks = instance.node.p2lNode.establishedConnections.map { it.socketAddress }.filter { it != rb.from }.shuffled().toTypedArray()
+        val fallbacks = instance.node.p2lNode.establishedConnections.map { it.address }.filter { it != rb.from }.shuffled().toTypedArray()
         val txs = instance.node.queryAllTx(rb.b, instance.memPool, rb.from, *fallbacks)
         if (txs.size != rb.b.size) {
             store.clear()
@@ -43,7 +44,7 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
         else if(at != index) throw IllegalStateException("problem: actual added index($at) different to expected index($index)")
     }
 
-    fun addNew(atHeight: Int, receivedBlock: Block, from: SocketAddress): Boolean = synchronized(this) {
+    fun addNew(atHeight: Int, receivedBlock: Block, from: InetSocketAddress): Boolean = synchronized(this) {
         if (atHeight < instance.chain.blockCount())
             return false
 
@@ -63,5 +64,5 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
         }
     }
 
-    data class RecordedBlock(val b: Block, val from : SocketAddress)
+    data class RecordedBlock(val b: Block, val from : InetSocketAddress)
 }

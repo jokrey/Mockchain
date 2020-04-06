@@ -54,11 +54,11 @@ class ConsensusTests {
         val keypair2 = RSAAuthHelper.generateKeyPair()
         val keypair3 = RSAAuthHelper.generateKeyPair()
         val identities = listOf(keypair1.public.encoded, keypair2.public.encoded, keypair3.public.encoded)
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43231).toDirect(),
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43231).unsafeAsDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair1))
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43232).toDirect(),
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43232).unsafeAsDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair2))
-        val instance3 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43233).toDirect(),
+        val instance3 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43233).unsafeAsDirect(),
                 consensus = ProofOfStaticStakeConsensusCreator(1000, identities, keypair3))
         instance2.connect(instance1.selfLink, instance3.selfLink)
         instance1.connect(instance3.selfLink)

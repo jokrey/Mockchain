@@ -59,13 +59,13 @@ class SharedRandomnessTest {
         )
 
 
-        val rendezvousLink = P2Link.createLocalLink(40000).toDirect()
+        val rendezvousLink = P2Link.Local.forTest(40000).unsafeAsDirect()
         val relayServer = RendezvousServer(rendezvousLink)
 
         val nodes = listOf(
-                NodeCreator.create(P2Link.createLocalLink(30141).toDirect()),
-                NodeCreator.create(P2Link.createLocalLink(30142).toDirect()),
-                NodeCreator.create(P2Link.createLocalLink(30143).toDirect())
+                NodeCreator.create(P2Link.Local.forTest(30141).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(30142).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(30143).unsafeAsDirect())
         )
 
         val pool = P2LThreadPool(3, 3)
@@ -126,13 +126,13 @@ class SharedRandomnessTest {
         )
 
 
-        val rendezvousLink = P2Link.createLocalLink(40000).toDirect()
+        val rendezvousLink = P2Link.Local.forTest(40000).unsafeAsDirect()
         val relayServer = RendezvousServer(rendezvousLink)
 
         val nodes = listOf(
-                NodeCreator.create(P2Link.createLocalLink(20141).toDirect()),
-                NodeCreator.create(P2Link.createLocalLink(20142).toDirect()),
-                NodeCreator.create(P2Link.createLocalLink(20143).toDirect())
+                NodeCreator.create(P2Link.Local.forTest(20141).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(20142).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(20143).unsafeAsDirect())
         )
 
         val pool = P2LThreadPool(3, 3)

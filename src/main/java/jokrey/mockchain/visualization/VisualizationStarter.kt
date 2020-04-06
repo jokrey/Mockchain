@@ -71,8 +71,8 @@ fun main() {
 
     buildNewInstanceConfiguration()
 
-//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createLocalLink(45221).toDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
-//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.createLocalLink(45222).toDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.Local.forTest(45221).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
+//    VisualizationFrame(Nockchain(SingleStringCalculator(), P2Link.Local.forTest(45222).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator(-1, Int.MAX_VALUE)))
 }
 
 fun startApplicationChooserOnly(current: VisualizableApp? = null, frame: Component? = null) {
@@ -112,7 +112,7 @@ fun startNetworkChooser(frame: Component? = null): P2Link? {
             ?: return null
 
     val split = result.split(":")
-    return P2Link.createDirectLink(split[0], split[1].toInt())
+    return P2Link.Direct(split[0], split[1].toInt())
 }
 
 

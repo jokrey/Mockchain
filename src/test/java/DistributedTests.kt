@@ -23,9 +23,9 @@ import kotlin.test.assertTrue
 class DistributedTests {
     @Test
     fun simpleTest3Nodes() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43221).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43222).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance3 = Nockchain(EmptyApplication(), P2Link.createLocalLink(43223).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43221).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43222).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance3 = Nockchain(EmptyApplication(), P2Link.Local.forTest(43223).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
         instance3.consensus as ManualConsensusAlgorithm
@@ -65,9 +65,9 @@ class DistributedTests {
             }
         }
 
-        val instance1 = Nockchain(appCreator(), P2Link.createLocalLink(43224).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(appCreator(), P2Link.createLocalLink(43225).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance3 = Nockchain(appCreator(), P2Link.createLocalLink(43226).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(appCreator(), P2Link.Local.forTest(43224).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(appCreator(), P2Link.Local.forTest(43225).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance3 = Nockchain(appCreator(), P2Link.Local.forTest(43226).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
         instance3.consensus as ManualConsensusAlgorithm
@@ -111,8 +111,8 @@ class DistributedTests {
 
     @Test
     fun testNodeQueriesUnknownTxs() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44221).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44222).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44221).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44222).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 
@@ -138,8 +138,8 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple1() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44223).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44224).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44223).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44224).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 
@@ -197,8 +197,8 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple2_manyTx() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44225).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44226).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44225).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44226).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 
@@ -261,8 +261,8 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple2_manyBlocks() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44227).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44228).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44227).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44228).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 
@@ -335,8 +335,8 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple_nextBlockRightAway_pauseTest() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44230).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44231).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44230).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44231).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 
@@ -417,9 +417,9 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple_concurrentToPerform_pauseTest() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44251).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44252).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance3 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44253).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44251).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44252).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance3 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44253).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
         instance3.consensus as ManualConsensusAlgorithm
@@ -567,8 +567,8 @@ class DistributedTests {
 
     @Test
     fun catchUpTest() {
-        val instance1 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44232).toDirect(), consensus = ManualConsensusAlgorithmCreator())
-        val instance2 = Nockchain(EmptyApplication(), P2Link.createLocalLink(44233).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44232).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
+        val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44233).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         instance1.consensus as ManualConsensusAlgorithm
         instance2.consensus as ManualConsensusAlgorithm
 

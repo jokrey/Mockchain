@@ -53,13 +53,13 @@ fun main() {
 }
 
 fun startNodesConnectedThroughRendezvous(knownIdentities: List<Pair<String, String>>) {
-    val rendezvousLink = P2Link.createLocalLink(40000).toDirect()
+    val rendezvousLink = P2Link.Local.forTest(40000).unsafeAsDirect()
     val relayServer = RendezvousServer(rendezvousLink)
 
     val nodes = listOf(
-            NodeCreator.create(P2Link.createLocalLink(30141).toDirect()),
-            NodeCreator.create(P2Link.createLocalLink(30142).toDirect()),
-            NodeCreator.create(P2Link.createLocalLink(30143).toDirect())
+            NodeCreator.create(P2Link.Local.forTest(30141).unsafeAsDirect()),
+            NodeCreator.create(P2Link.Local.forTest(30142).unsafeAsDirect()),
+            NodeCreator.create(P2Link.Local.forTest(30143).unsafeAsDirect())
     )
 
     val pool = P2LThreadPool(3, 3)
@@ -84,7 +84,7 @@ fun startNodesConnectedThroughRendezvous(knownIdentities: List<Pair<String, Stri
         startInstance(nodes[i], knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second), foundIdentities.map { Pair(it.name, base64Encode(it.publicKey)) })
     }
     for(i in instances.indices)
-        instances[i].connect(eachFoundIdentities[i].withIndex().filterNot { it.index == i }.map { it.value.address })
+        instances[i].connect(eachFoundIdentities[i].withIndex().filterNot { it.index == i }.map { it.value.link })
 
     relayServer.close()
 }
@@ -102,7 +102,7 @@ fun startConnectedNodesWithIdentities(identities: List<Pair<String, String>>) {
 }
 fun startNodeWith(port: Int, initialOwnName: String, initialOwnKeyPair: KeyPair, initialContacts: List<Pair<String, String>>) : Nockchain {
     val app = SharedRandomness(Int.MAX_VALUE, 128, 128)
-    val instance = Nockchain(app, P2Link.createLocalLink(port).toDirect(), consensus = ManualConsensusAlgorithmCreator())
+    val instance = Nockchain(app, P2Link.Local.forTest(port).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
     VisualizationFrame(instance)
     startAppUI(app, instance, initialOwnName, initialOwnKeyPair, initialContacts, false, allowChoosingContacts = true)
     return instance

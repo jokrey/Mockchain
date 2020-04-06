@@ -14,6 +14,7 @@ import jokrey.utilities.network.link2peer.util.TimeoutException
 import java.lang.Exception
 import java.lang.IllegalStateException
 import java.lang.Integer.min
+import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.concurrent.RejectedExecutionException
 
@@ -72,7 +73,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     internal fun relayValidBlock(block: Block, exception: SocketAddress? = null) {
         pool.executeThreadedSuccessCounter(p2lNode.establishedConnections.map { peer ->
             P2LThreadPool.Task {
-                val to = peer.socketAddress
+                val to = peer.address
                 if(to != exception) {
                     newBlockConversation_client_init(to, block)
                 }
@@ -88,7 +89,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     }
 
 
-    internal fun queryAllTx(txps: Iterable<TransactionHash>, txResolver: TransactionResolver = instance.memPool, vararg allowedRemoteFallbacks: SocketAddress): List<Transaction> {
+    internal fun queryAllTx(txps: Iterable<TransactionHash>, txResolver: TransactionResolver = instance.memPool, vararg allowedRemoteFallbacks: InetSocketAddress): List<Transaction> {
 //        val transactionQueries = pool.execute(
 //                txps.map {txp ->
 //                    P2LThreadPool.ProvidingTask {
@@ -138,7 +139,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
 //        println("results(${results.size}) = ${results}")
         return results
     }
-    private fun requestTxFrom(txp: TransactionHash, link: SocketAddress) : Transaction? {
+    private fun requestTxFrom(txp: TransactionHash, link: InetSocketAddress) : Transaction? {
         try {
             val convo = p2lNode.convo(TX_REQUEST, link)
                 instance.log("requesting $txp from $link")
@@ -154,7 +155,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     private var txBroadcastCounter = 0
     internal fun broadcastTx(tx: Transaction) {
         val numConnected = p2lNode.establishedConnections.size
-        val receipts = p2lNode.sendBroadcastWithReceipts(P2LMessage.Factory.createBroadcast(p2lNode.selfLink, TX_BROADCAST_TYPE, tx.encode()))
+        val receipts = p2lNode.sendBroadcastWithReceipts(P2LMessage.Factory.createBroadcast(p2lNode.selfLink.resolve(), TX_BROADCAST_TYPE, tx.encode()))
 
         txBroadcastCounter++
         instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")
@@ -168,8 +169,8 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
      * Will attempt to catchup from the given peers in that order until catchup was successful.
      * Internally uses the fork protocol, so the consensus algorithm will be asked if it allows the catchup, which can also include a fork
      */
-    fun catchMeUpTo(vararg peers: P2Link) = catchMeUpTo(*peers.map {it.socketAddress}.toTypedArray())
-    fun catchMeUpTo(vararg peers: SocketAddress) : Boolean {
+    fun catchMeUpTo(vararg peers: P2Link) = catchMeUpTo(*peers.map {p2lNode.resolve(it)}.toTypedArray())
+    fun catchMeUpTo(vararg peers: InetSocketAddress) : Boolean {
         for(peer in peers) {
             val convo = p2lNode.convo(CATCH_ME_UP_IF_YOU_CAN, peer)
             val m0 = convo.initExpect(convo.encode(instance.chain.blockCount()))
@@ -268,7 +269,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         }
     }
 
-    private fun newBlockConversation_client_init(to: SocketAddress, block: Block) {
+    private fun newBlockConversation_client_init(to: InetSocketAddress, block: Block) {
         val convo = p2lNode.convo(NEW_BLOCK_TYPE, to)
         var result = CONTINUE
         convo.setMaxAttempts(3)

@@ -24,7 +24,7 @@ fun main(args: Array<String>) {
 
     val ownAddress = if (args.size > 1) args[1] else
         JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of own node (or just <port> if localhost)", "30104")
-    val ownLink = P2Link.fromString(ownAddress)
+    val ownLink = P2Link.from(ownAddress)
 
     val ownKeyPairEncoded = if (args.size > 2) args[2] else
         JOptionPane.showInputDialog("$ownName please:\nEnter own encoded keypair or use the automatically generated key pair below", encodeKeyPair(RSAAuthHelper.generateKeyPair()))
@@ -39,7 +39,7 @@ fun main(args: Array<String>) {
 
     val rendezvousAddress = if (args.size > 3) args[3] else
         JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of rendezvous server", "lmservicesip.ddns.net:40000")
-    var rendezvousLink = P2Link.fromString(rendezvousAddress)
+    var rendezvousLink = P2Link.from(rendezvousAddress)
 
 
     val node = NodeCreator.create(ownLink)
@@ -57,7 +57,7 @@ fun main(args: Array<String>) {
                 node.close()
                 throw IllegalStateException("failed to rendezvous")
             }
-            rendezvousLink = P2Link.fromString(newRendezvousAddress)
+            rendezvousLink = P2Link.from(newRendezvousAddress)
             emptyArray()
         }
     } while(attemptResult.isEmpty())
@@ -70,10 +70,10 @@ fun main(args: Array<String>) {
     val instance = app.getInstance(node, store = NonPersistentStorage())
 
     println("found contacts = ${contacts.toList()}")
-    println("contacts[0].address = ${contacts[0].address}")
-    println("contacts[0].address.isHiddenLink = ${contacts[0].address.isHiddenLink}")
+    println("contacts[0].address = ${contacts[0].link}")
+    println("contacts[0].address.isHiddenLink = ${contacts[0].link.isRelayed}")
 
-    instance.connect(contacts.map { it.address })
+    instance.connect(contacts.map { it.link })
 
     if(showBlockchainUI) VisualizationFrame(instance)
     startAppUI(app, instance, ownName, ownKeyPair, contacts.map { Pair(it.name, base64Encode(it.publicKey)) }, allowEditingData = false, allowChoosingContacts = false)

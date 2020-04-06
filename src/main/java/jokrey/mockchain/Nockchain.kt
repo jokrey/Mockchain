@@ -30,14 +30,14 @@ class Nockchain : Mockchain {
     constructor(app: Application,
                 p2lNode: P2LNode,
                 store: StorageModel = NonPersistentStorage(),
-                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, p2lNode.selfLink.bytesRepresentation)) : super(app, store, consensus) {
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, p2lNode.selfLink.toBytes())) : super(app, store, consensus) {
         node = ChainNode(p2lNode, this)
         this.selfLink = p2lNode.selfLink
     }
     constructor(app: Application,
                 selfLink: P2Link,
                 store: StorageModel = NonPersistentStorage(),
-                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.bytesRepresentation)) : super(app, store, consensus) {
+                consensus: ConsensusAlgorithmCreator = SimpleProofOfWorkConsensusCreator(5, selfLink.toBytes())) : super(app, store, consensus) {
         node = ChainNode(selfLink, 10, this)
         this.selfLink = selfLink
     }

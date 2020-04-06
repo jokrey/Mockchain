@@ -46,7 +46,7 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
     }
 
     val connectToCallback = ActionListener {
-        node.connect(P2Link.fromString(connectToInputField.text))
+        node.connect(P2Link.from(connectToInputField.text))
         connectToInputField.text = ""
     }
     connectToButton.addActionListener(connectToCallback)
