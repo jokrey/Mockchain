@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Main-Class: jokrey.mockchain.application.examples.sharedrandomness.Stati
+ cSharedRandomnessStarterKt
+
