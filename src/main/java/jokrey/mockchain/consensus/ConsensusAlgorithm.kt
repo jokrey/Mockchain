@@ -120,7 +120,10 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         do {
             var rejectedTxCount = 0
             AverageCallTimeMarker.mark_call_start("app verify")
-            val appRejectedTransactions = app.verify(instance, blockCreatorIdentity, *proposed.toTypedArray())
+            //todo - in most cases single verify is called twice. This is not cool.
+            val appRejectedTransactionsSingleVerify = proposed.mapNotNull { Pair(it, app.preMemPoolVerify(instance, it)?: return@mapNotNull null) }
+            val appRejectedTransactionsBlockVerify = app.blockVerify(instance, blockCreatorIdentity, *proposed.toTypedArray())
+            val appRejectedTransactions = appRejectedTransactionsSingleVerify + appRejectedTransactionsBlockVerify
             handleRejection(proposed, appRejectedTransactions)
             proposed.removeAll(appRejectedTransactions.map { it.first })
             rejectedTxCount += appRejectedTransactions.size
@@ -130,10 +133,10 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
                 break // if app does not reject anything after a squash run, then squash is not required to be run again - because nothing changed
 
             AverageCallTimeMarker.mark_call_start("squash verify")
-            if(overridePreviousSquashState)
-                newSquashState = instance.chain.squashVerify(proposed)
+            newSquashState = if(overridePreviousSquashState)
+                instance.chain.squashVerify(proposed)
             else
-                newSquashState = instance.chain.squashVerify(proposed, previousSquashState)
+                instance.chain.squashVerify(proposed, previousSquashState)
             handleRejection(proposed, newSquashState.rejections)
             proposed.removeAll(newSquashState.rejections.map { it.first })
             rejectedTxCount += newSquashState.rejections.size

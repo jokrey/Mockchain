@@ -18,7 +18,8 @@ import java.util.*
 
 
 open class EmptyApplication : Application {
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? = null //accept all
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
     override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {}
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {}
@@ -31,6 +32,7 @@ open class EmptyApplication : Application {
     override fun getPartialReplaceSquashHandler(): PartialReplaceSquashHandler = { latestContent, _ -> latestContent.copyOf(latestContent.size-1) }
     override fun getSequenceSquashHandler(): SequenceSquashHandler = { list -> list.flatMap { (it + byteArrayOf(13)).asIterable() }.toByteArray() }
     override fun newEqualInstance() = EmptyApplication()
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
 }
 fun contentIsArbitrary() = contentIsArbitrary(11)
 fun contentIsArbitrary(maxSize: Int) = contentIsArbitrary(Random(), maxSize)

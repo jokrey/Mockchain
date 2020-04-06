@@ -37,14 +37,20 @@ open class Mockchain(internal var app: Application,
         if(tx.hash in chain || tx.hash in memPool) {
             // - this 'fix' does not work in a distributed environment, it does! txs are guaranteed to be equal, memPool should also be synchronized
             app.txRejected(this, tx.hash, tx, RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field"))
-            throw IllegalArgumentException("hash already known to chain this is illegal for now, due to the hash uniqueness problem - tx: $tx")
+            throw IllegalArgumentException("hash(${tx.hash} already known to the chain - try adding a timestamp field")
         }
-        if(tx.blockId >= 0)
-            throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty")
-//        log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
-        memPool[tx.hash] = tx
+        if(tx.blockId >= 0) throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty - dev error")
 
-        consensus.notifyNewTransactionInMemPool(tx)
+        val rejectionDescription = app.preMemPoolVerify(this, tx)
+        if(rejectionDescription != null) {
+            app.txRejected(this, tx.hash, tx, rejectionDescription)
+            throw IllegalArgumentException("App mem pool verify rejected: $rejectionDescription")
+        } else {
+            memPool[tx.hash] = tx
+//                log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
+            consensus.notifyNewTransactionInMemPool(tx)
+            app.newTxInMemPool(this, tx)
+        }
     }
 
 

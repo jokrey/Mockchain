@@ -21,19 +21,17 @@ import kotlin.collections.HashMap
 class SensorNetAnalyzer: VisualizableApp {
     private val sensorData = HashMap<String, MutableList<SensorResult>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
-        val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
-        for(tx in txs) {
-            val sr = srFromTx(tx)
-            if(java.lang.Double.isNaN(sr.second.result) && !sr.second.isAverage)
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("value is NaN and will not become an average")))
-            else if(java.lang.Double.isInfinite(sr.second.result))
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("value is infinite")))
-            else if(tx.bDependencies.isNotEmpty() && (tx.bDependencies.size % 2 != 0 || tx.bDependencies.any { it.type != DependencyType.REPLACES && it.type != DependencyType.BUILDS_UPON }))
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("dependencies not empty and not even or contain non-replace or non-build-upon edges")))
-        }
-        return denied
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? {
+        val sr = srFromTx(tx)
+        if(java.lang.Double.isNaN(sr.second.result) && !sr.second.isAverage)
+            return RejectionReason.APP_VERIFY("value is NaN and will not become an average")
+        else if(java.lang.Double.isInfinite(sr.second.result))
+            return RejectionReason.APP_VERIFY("value is infinite")
+        else if(tx.bDependencies.isNotEmpty() && (tx.bDependencies.size % 2 != 0 || tx.bDependencies.any { it.type != DependencyType.REPLACES && it.type != DependencyType.BUILDS_UPON }))
+            return RejectionReason.APP_VERIFY("dependencies not empty and not even or contain non-replace or non-build-upon edges")
+        return null //accepted
     }
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
 
     //cannot introduce change before build upon, is this the right way or should the average be pre calculated??
     //    this is kinda weird and precalculation might be even weirder
@@ -52,13 +50,8 @@ class SensorNetAnalyzer: VisualizableApp {
     }
 
     override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {
-        for (res in Array(block.size) { srFromTx(newTransactions[it]) }) {
-            if (java.lang.Double.isNaN(res.second.result)) {
-                if (!res.second.isAverage)
-                    throw IllegalStateException("Should not happen, verification should have caught this")
-            } else
-                sensorData.computeIfAbsent(res.first) { ArrayList() }.add(res.second)
-        }
+        for (res in Array(block.size) { srFromTx(newTransactions[it]) })
+            sensorData.computeIfAbsent(res.first) { ArrayList() }.add(res.second)
     }
 
     private val possibleNames: Array<String> = arrayOf("Straße", "Haus", "Auto", "Garage")
@@ -145,6 +138,7 @@ class SensorNetAnalyzer: VisualizableApp {
         LOG.finest("av = ${average}")
         SensorResult(averageEmptySensorResult.timestamp, average, true).getTx(averageName).content
     }
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
 }
 
 data class SensorResult(val timestamp: Long, val result: Double, val isAverage: Boolean) {

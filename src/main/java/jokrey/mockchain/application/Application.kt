@@ -34,6 +34,26 @@ interface Application {
     fun getSequenceSquashHandler(): SequenceSquashHandler = {_ -> throw SquashRejectedException("Application does not support sequence dependency relations") }
 
     /**
+     * Called prior to adding a tx to the mem pool locally.
+     * If unsure that a transaction is really invalid, wait for the actual block verification callback and reject it there.
+     * Any validation done here do not need to be redone in the block verification.
+     * Generally speaking this method can be used to validate a transaction individually and the block verify method is used to validate that they are correct in order and with the current state.
+     *
+     * @return Optional of a rejection reason, if that optional is empty the transaction is considered accepted
+     */
+    fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY?
+
+    /**
+     * Called right after a positive mem pool verify.
+     * Notifies this application that the new transaction has passed preliminary verification and is now in the mem pool.
+     * Can be used to react to the given transaction and (for example) add another transaction.
+     * Note that just because this method is called, there is no guarantee that the transaction is ever persisted or an influence on the application state.
+     *
+     * This method should never change the application state.
+     */
+    fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
+
+    /**
      * Returns the Transactions that were rejected
      *     DO NOT ALTER STATE FROM THIS METHOD
      *     But alter state virtually
@@ -54,7 +74,7 @@ interface Application {
      *     Specifically in PoW consensus algorithms an incentive may be given by allowing the block creator to add a special transaction.
      *     This information is required here to verify such a transaction.
      */
-    fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction) : List<Pair<Transaction, RejectionReason.APP_VERIFY>>
+    fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction) : List<Pair<Transaction, RejectionReason.APP_VERIFY>>
 
     /**
      * Alters the internal application state
@@ -99,4 +119,8 @@ interface Application {
      * Todo - this has some SERIOUS requirements to the application - in case of a fork it needs to be able to VERY quickly accept changes.
      */
     fun newEqualInstance(): Application
+    /**
+     * Todo - this has some SERIOUS requirements to the application - in case of a fork it needs to be able to VERY quickly accept changes.
+     */
+    fun cleanUpAfterForkInvalidatedThisState()
 }

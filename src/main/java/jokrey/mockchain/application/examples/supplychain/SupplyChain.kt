@@ -7,7 +7,7 @@ import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.transaction_transformation.ManyTransactionHandler
 import jokrey.mockchain.transaction_transformation.SerializedTransactionHandler
 import jokrey.mockchain.visualization.VisualizableApp
-import jokrey.mockchain.visualization.util.UserAuthHelper
+import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.encoder.as_union.li.bytes.LIbae
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.serialization.LIObjectEncoderFull
@@ -39,7 +39,8 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
     private val wpeListeners = ArrayList<WPEListener>()
     private val routeListeners = ArrayList<Pair<String, (SupplyRoute, Transaction) -> Unit>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? = null //accept all into mempool - todo this is not a necessity, some checks can be done here..
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         //does NOT do virtual changes yet, so only one tx in any sequence will ever be accepted - this is a todo
@@ -208,6 +209,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
             throw UnsupportedOperationException("try either: \"new routeName with 3 stops\"\nor: \"company <shipped/delayed/received> 1236 at route\"")
         }
     }
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
 }
 data class WPEListener(val routeName:String, val wayPoint: Int, val type: WPType, val call: (String, Int, WPType, Transaction)->Unit)
 
@@ -264,7 +266,7 @@ class SupplyRoute(val name: String, internal val wayPointAuthenticatorsPublicKey
 
         val wayPointAuthenticatorPubKey = wayPointAuthenticatorsPublicKeys[current.currentWayPoint]
 
-        return current.authenticateWayPointEvent(swpe.wpe, assertEnd) && UserAuthHelper.verify(swpe.wpe.toBytes(), swpe.signature, wayPointAuthenticatorPubKey)
+        return current.authenticateWayPointEvent(swpe.wpe, assertEnd) && RSAAuthHelper.verify(swpe.wpe.toBytes(), swpe.signature, wayPointAuthenticatorPubKey)
     }
 
     fun commitWayPointEvent(wpe: WayPointEvent) {
@@ -372,7 +374,7 @@ class Shipment(private val numberOfWayPoints: Int) {
     }
 }
 
-class SignedWayPointEvent(val wpe: WayPointEvent, authenticatorPrivateKey: ByteArray? = null, val signature: ByteArray = UserAuthHelper.sign(wpe.toBytes(), authenticatorPrivateKey)) {
+class SignedWayPointEvent(val wpe: WayPointEvent, authenticatorPrivateKey: ByteArray? = null, val signature: ByteArray = RSAAuthHelper.sign(wpe.toBytes(), authenticatorPrivateKey)) {
     override fun hashCode(): Int {
         var result = wpe.hashCode()
         result = 31 * result + signature.contentHashCode()

@@ -50,40 +50,36 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     fun getResults() = results.toList().sortedBy { it.first }.map { it.second }
     fun getRawResults():HashMap<Int, Double> = results.clone() as HashMap<Int, Double>
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? {
+        if (tx.bDependencies.isNotEmpty()) {
+            if(!tx.bDependencies.any {it.type == DependencyType.BUILDS_UPON})
+                return RejectionReason.APP_VERIFY("has dependencies, but no build-upon dependency")
+            if(maxDependencies == 1 && !tx.bDependencies.any {it.type == DependencyType.REPLACES})
+                return RejectionReason.APP_VERIFY("has dependencies and maxDependencies == 1, but no replace dependency")
+            if(maxDependencies > 1 && !tx.bDependencies.any {it.type == DependencyType.REPLACES_PARTIAL})
+                return RejectionReason.APP_VERIFY("has dependencies and maxDependencies > 1, but no replace-partial dependency")
+            if(tx.bDependencies.size/2 > maxDependencies)
+                return RejectionReason.APP_VERIFY("has uneven number of dependencies")
+        }
+
+        try {
+            val c = calcFromTx(tx)
+            if (tx.bDependencies.isEmpty() && c !is Initial)
+                return RejectionReason.APP_VERIFY("non initial transaction is missing dependencies")
+        } catch (ex: Exception) {
+            return RejectionReason.APP_VERIFY("exception thrown - ${ex.message}")
+        }
+        return null //accepted
+    }
+
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val virtualResults = results.clone() as HashMap<Int, Double>
 
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
         for(tx in txs) {
-            if (tx.bDependencies.isNotEmpty()) {
-                if(!tx.bDependencies.any {it.type == DependencyType.BUILDS_UPON}) {
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("has dependencies, but no build-upon dependency")))
-                    continue
-                }
-                if(maxDependencies == 1 && !tx.bDependencies.any {it.type == DependencyType.REPLACES}) {
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("has dependencies and maxDependencies == 1, but no replace dependency")))
-                    continue
-                }
-                if(maxDependencies > 1 && !tx.bDependencies.any {it.type == DependencyType.REPLACES_PARTIAL}) {
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("has dependencies and maxDependencies > 1, but no replace-partial dependency")))
-                    continue
-                }
-                if(tx.bDependencies.size/2 > maxDependencies) {
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("has uneven number of dependencies")))
-                    continue
-                }
-            }
-
-            try {
-                val c = calcFromTx(tx)
-                if (tx.bDependencies.isEmpty() && c !is Initial)
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("non initial transaction is missing dependencies")))
-                else if (!tryUpdateResult(virtualResults, c))
-                    denied.add(Pair(tx, RejectionReason.APP_VERIFY("could not update result (for example /0) - MATH ERROR")))
-            } catch (ex: Exception) {
-                ex.printStackTrace()
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("exception thrown - ${ex.message}")))
-            }
+            val c = calcFromTx(tx)
+            if (!tryUpdateResult(virtualResults, c))
+                denied.add(Pair(tx, RejectionReason.APP_VERIFY("could not update result (for example /0) - MATH ERROR")))
         }
         return denied
     }
@@ -247,6 +243,8 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
 
 
 
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
+
     override fun getEqualFreshCreator(): () -> VisualizableApp = { MashedCalculator(numberOfInitialStates, verify, maxDependencies) }
     override fun getCreatorParamNames() = arrayOf("number of initial states (int)", "maximum dependencies in each string (int)")
     override fun getCurrentParamContentForEqualCreation() = arrayOf(numberOfInitialStates.toString(), maxDependencies.toString())
@@ -265,7 +263,6 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         updateLastInStrings(newTx)
         return newTx
     }
-
 }
 
 

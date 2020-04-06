@@ -23,9 +23,17 @@ class Currency : VisualizableApp {
     private val balances = HashMap<String, Long>()
     private val registrationTxs = HashMap<String, Transaction>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? {
+        if(tx.bDependencies.isNotEmpty() && ! (tx.bDependencies.size == 4 &&
+                        tx.bDependencies.all { it.type == DependencyType.REPLACES_PARTIAL || it.type == DependencyType.ONE_OFF_MUTATION }))
+            return RejectionReason.APP_VERIFY("dependencies illegal(have to be 0 or 4 and only replace-partial and replaced-by)")
+        return null //accepted
+    }
+
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
+        //todo - this newly denied thing is no longer required, right? Doesn't the verify algorithm in consensus algorithm do this??
         val newlyDenied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
         do {
             denied.addAll(newlyDenied)
@@ -37,12 +45,6 @@ class Currency : VisualizableApp {
             for(tx in txs) {
                 if(denied.any { it.first == tx })
                     continue
-
-                if(tx.bDependencies.isNotEmpty() && ! (tx.bDependencies.size == 4 &&
-                        tx.bDependencies.all { it.type == DependencyType.REPLACES_PARTIAL || it.type == DependencyType.ONE_OFF_MUTATION })) {
-                    newlyDenied.add(Pair(tx, RejectionReason.APP_VERIFY("dependencies illegal(have to be 0 or 4 and only replace-partial and replaced-by)")))
-                    continue
-                }
                 try {
                     executeTransaction(virtualBalances, tx = tx) //registrations are not required for verification
                 } catch(ex: IllegalAccessException) {
@@ -128,6 +130,8 @@ class Currency : VisualizableApp {
             throw SquashRejectedException("invalid edge (either dependency is not a registration or depending transaction is not a value transfer)")
         }
     }
+
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
 }
 
 const val INITIAL_MONEY: Long = 5000L

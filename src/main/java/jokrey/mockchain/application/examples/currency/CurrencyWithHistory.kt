@@ -20,16 +20,17 @@ class CurrencyWithHistory : VisualizableApp {
     private val balances = HashMap<String, Long>()
     private val history = ArrayList<Triple<String, String, Long>>()
 
-    override fun verify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
+    override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? {
+        if(tx.bDependencies.isNotEmpty())
+            return RejectionReason.APP_VERIFY("has dependencies")
+        return null //accepted
+    }
+    override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 
         val virtualBalances = balances.toMutableMap() //creates a copy
 
         for(tx in txs) {
-            if(tx.bDependencies.isNotEmpty()) {
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("has dependencies")))
-                continue
-            }
             try {
                 executeTransaction(virtualBalances, tx = tx)
             } catch(ex: IllegalAccessException) {
@@ -89,4 +90,6 @@ class CurrencyWithHistory : VisualizableApp {
             }
         }
     }
+
+    override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT
 }
