@@ -16,6 +16,8 @@ import javax.swing.JOptionPane
 /**
  * TODO - problem: if a node disconnects there is no way to get back in...
  *
+ * TODO - show a list of possible contacts instead of forcing the user to type them in (like a lobby)
+ *
  *
  * @author jokrey
  */
