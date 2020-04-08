@@ -4,6 +4,7 @@ import jokrey.mockchain.Nockchain
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.encoder.as_union.li.bytes.MessageEncoder
+import jokrey.utilities.network.link2peer.P2LBroadcastMessage
 import jokrey.utilities.network.link2peer.P2LMessage
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
@@ -18,7 +19,7 @@ import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.concurrent.RejectedExecutionException
 
-private const val TX_BROADCAST_TYPE:Short = 1
+private const val TX_BROADCAST_TYPE:Int = 1
 private const val NEW_BLOCK_TYPE:Int = 2
 private const val TX_REQUEST:Int = 3
 private const val CATCH_ME_UP_IF_YOU_CAN: Int = 4
@@ -43,11 +44,11 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
 
     init {
         p2lNode.addBroadcastListener {
-            when(it.header.type) {
+            when(it.header.type.toInt()) {
                 TX_BROADCAST_TYPE -> {
                     //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - <2 packages.
                     val receivedTx = Transaction.decode(it.asBytes())
-                    instance.log("received tx = $receivedTx - from: ${it.header.sender}")
+                    instance.log("received tx = $receivedTx - from: ${it.source}")
                     instance.commitToMemPool(receivedTx, false)
                 }
             }
@@ -155,7 +156,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     private var txBroadcastCounter = 0
     internal fun broadcastTx(tx: Transaction) {
         val numConnected = p2lNode.establishedConnections.size
-        val receipts = p2lNode.sendBroadcastWithReceipts(P2LMessage.Factory.createBroadcast(p2lNode.selfLink.resolve(), TX_BROADCAST_TYPE, tx.encode()))
+        val receipts = p2lNode.sendBroadcastWithReceipts(P2LBroadcastMessage.from(p2lNode.selfLink, P2LMessage.with(TX_BROADCAST_TYPE, tx.encode())))
 
         txBroadcastCounter++
         instance.log("broadcast-memPool-tx(id:$txBroadcastCounter): $tx")

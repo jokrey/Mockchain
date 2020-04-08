@@ -8,11 +8,14 @@ import jokrey.utilities.encodeKeyPair
 import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.NodeCreator
-import jokrey.utilities.network.link2peer.rendevouz.RendezvousServer
-import jokrey.utilities.network.link2peer.util.TimeoutException
+import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
+import jokrey.utilities.network.link2peer.rendezvous.RendezvousServer
+import java.util.*
 import javax.swing.JOptionPane
 
 /**
+ * TODO - problem: if a node disconnects there is no way to get back in...
+ *
  *
  * @author jokrey
  */
@@ -23,8 +26,8 @@ fun main(args: Array<String>) {
     if(ownName.isEmpty()) return
 
     val ownAddress = if (args.size > 1) args[1] else
-        JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of own node (or just <port> if localhost)", "30104")
-    val ownLink = P2Link.from(ownAddress)
+        JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of own node (or <port> if localhost)", "30104")
+    val ownLink = P2Link.from(if(ownAddress.contains(":")) ownAddress else "$ownName[local=$ownAddress]")
 
     val ownKeyPairEncoded = if (args.size > 2) args[2] else
         JOptionPane.showInputDialog("$ownName please:\nEnter own encoded keypair or use the automatically generated key pair below", encodeKeyPair(RSAAuthHelper.generateKeyPair()))
@@ -39,29 +42,36 @@ fun main(args: Array<String>) {
 
     val rendezvousAddress = if (args.size > 3) args[3] else
         JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of rendezvous server", "lmservicesip.ddns.net:40000")
-    var rendezvousLink = P2Link.from(rendezvousAddress)
+    var rendezvousLink = P2Link.from(rendezvousAddress) as P2Link.Direct
 
 
     val node = NodeCreator.create(ownLink)
 
-    var attemptResult: Array<RendezvousServer.IdentityTriple>
+
+    val connectedPeers = ArrayList<IdentityTriple>()
+    val remainingNames = contactNames.toMutableList()
     do {
-        attemptResult = try {
-            RendezvousServer.rendezvousWith(node, rendezvousLink,
-                    RendezvousServer.IdentityTriple(ownName, ownKeyPair.public.encoded, node.selfLink),
-                    *contactNames.toTypedArray()
-            )
-        } catch (e: TimeoutException) {
+        val results = RendezvousServer.rendezvousWith(node, rendezvousLink,
+                IdentityTriple(ownName, ownKeyPair.public.encoded, node.selfLink),
+                10000,
+                *contactNames.toTypedArray())
+
+        for(result in results) {
+            connectedPeers.add(result)
+            remainingNames.remove(result.name)
+        }
+
+        if(remainingNames.isNotEmpty()) {
             val newRendezvousAddress = JOptionPane.showInputDialog("Hi $ownName sorry, but:\nFailed to meet contacts at the rendezvous point within a certain time. Retry?\nEnter <ip/dns>:<port> of rendezvous server", rendezvousAddress)
             if(newRendezvousAddress == null) {
                 node.close()
                 throw IllegalStateException("failed to rendezvous")
             }
-            rendezvousLink = P2Link.from(newRendezvousAddress)
-            emptyArray()
         }
-    } while(attemptResult.isEmpty())
-    val contacts = attemptResult
+    } while(remainingNames.isNotEmpty())
+
+
+    val contacts = connectedPeers
 
     val app = StaticSharedRandomness(ownName, ownKeyPair,
             contacts.map { StaticSharedRandomnessParticipant(it.name, it.publicKey) } + StaticSharedRandomnessParticipant(ownName, ownKeyPair.public.encoded),
@@ -72,8 +82,6 @@ fun main(args: Array<String>) {
     println("found contacts = ${contacts.toList()}")
     println("contacts[0].address = ${contacts[0].link}")
     println("contacts[0].address.isHiddenLink = ${contacts[0].link.isRelayed}")
-
-    instance.connect(contacts.map { it.link })
 
     if(showBlockchainUI) VisualizationFrame(instance)
     startAppUI(app, instance, ownName, ownKeyPair, contacts.map { Pair(it.name, base64Encode(it.publicKey)) }, allowEditingData = false, allowChoosingContacts = false)

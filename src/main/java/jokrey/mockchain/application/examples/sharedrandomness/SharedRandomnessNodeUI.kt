@@ -9,7 +9,8 @@ import jokrey.utilities.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.NodeCreator
-import jokrey.utilities.network.link2peer.rendevouz.RendezvousServer
+import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
+import jokrey.utilities.network.link2peer.rendezvous.RendezvousServer
 import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.simple.data_structure.pairs.MutablePair
@@ -69,7 +70,8 @@ fun startNodesConnectedThroughRendezvous(knownIdentities: List<Pair<String, Stri
             println("$i - others = ${knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }}")
             Pair(i,
                 RendezvousServer.rendezvousWith(nodes[i], rendezvousLink,
-                        RendezvousServer.IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                        IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                        10000,
                         *knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }.toTypedArray()
                 )
             )

@@ -2,17 +2,16 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.Nockchain
 import jokrey.mockchain.application.examples.sharedrandomness.RandomnessChallenge
 import jokrey.mockchain.application.examples.sharedrandomness.SharedRandomness
-import jokrey.mockchain.application.examples.sharedrandomness.startInstance
 import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
 import jokrey.utilities.base64Decode
-import jokrey.utilities.base64Encode
 import jokrey.utilities.decodeKeyPair
 import jokrey.utilities.extractPublicKeyFromEncodedKeyPair
 import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.NodeCreator
-import jokrey.utilities.network.link2peer.rendevouz.RendezvousServer
+import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
+import jokrey.utilities.network.link2peer.rendezvous.RendezvousServer
 import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
@@ -75,7 +74,8 @@ class SharedRandomnessTest {
                 println("$i - others = ${knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }}")
                 Pair(i,
                         RendezvousServer.rendezvousWith(nodes[i], rendezvousLink,
-                                RendezvousServer.IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                                IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                                10000,
                                 *knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }.toTypedArray()
                         )
                 )
@@ -142,7 +142,8 @@ class SharedRandomnessTest {
                 println("$i - others = ${knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }}")
                 Pair(i,
                         RendezvousServer.rendezvousWith(nodes[i], rendezvousLink,
-                                RendezvousServer.IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                                IdentityTriple(knownIdentities[i].first, decodeKeyPair(knownIdentities[i].second).public.encoded, nodes[i].selfLink),
+                                10000,
                                 *knownIdentities.filterNot { it == knownIdentities[i] }.map { it.first }.toTypedArray()
                         )
                 )
