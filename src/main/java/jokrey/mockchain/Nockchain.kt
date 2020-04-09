@@ -59,7 +59,7 @@ class Nockchain : Mockchain {
     }
     /** @see P2LNode.recursiveGarnerConnections */
     fun recursiveConnect(connectionLimit:Int, vararg links: P2Link, catchup: Boolean = false) {
-        val successfulConnects = node.recursiveConnect(connectionLimit, *links)
+        val successfulConnects = node.recursiveConnect(connectionLimit, *links).get(10000)
 
         if(catchup)
             node.catchMeUpTo(*successfulConnects.toTypedArray())
