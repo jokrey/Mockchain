@@ -21,7 +21,8 @@ import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.network.link2peer.P2Link
 import java.awt.Component
 import java.util.concurrent.CancellationException
-import javax.swing.*
+import javax.swing.JFileChooser
+import javax.swing.JOptionPane
 import javax.swing.filechooser.FileSystemView
 
 

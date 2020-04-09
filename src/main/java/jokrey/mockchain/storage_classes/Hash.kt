@@ -1,7 +1,6 @@
 package jokrey.mockchain.storage_classes
 
 import java.security.MessageDigest
-import java.util.*
 
 /**
  * Generic class representing the hash of a byte array

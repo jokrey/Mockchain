@@ -2,7 +2,6 @@ package jokrey.mockchain.squash
 
 import jokrey.mockchain.application.Application
 import jokrey.mockchain.chainFromExistingData
-import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.storage_classes.*
 import java.util.*
 

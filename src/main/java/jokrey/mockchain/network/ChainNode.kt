@@ -12,8 +12,6 @@ import jokrey.utilities.network.link2peer.node.conversation.P2LConversation
 import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.network.link2peer.util.TimeoutException
-import java.lang.Exception
-import java.lang.IllegalStateException
 import java.lang.Integer.min
 import java.net.InetSocketAddress
 import java.net.SocketAddress

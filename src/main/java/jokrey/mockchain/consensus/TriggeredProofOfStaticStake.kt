@@ -4,9 +4,7 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.*
 import jokrey.utilities.misc.RSAAuthHelper
-import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
 import java.security.KeyPair
-import kotlin.math.roundToInt
 
 /**
  * Most naive proof of stake implementation.

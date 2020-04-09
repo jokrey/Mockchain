@@ -2,15 +2,15 @@ package jokrey.mockchain.application.examples.sharedrandomness
 
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.Nockchain
-import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
-import jokrey.mockchain.consensus.ProofOfStaticStake
 import jokrey.mockchain.consensus.TriggeredProofOfStaticStake
 import jokrey.mockchain.consensus.TriggeredProofOfStaticStakeConsensusCreator
-import jokrey.mockchain.storage_classes.*
+import jokrey.mockchain.storage_classes.NonPersistentStorage
+import jokrey.mockchain.storage_classes.RejectionReason
+import jokrey.mockchain.storage_classes.StorageModel
+import jokrey.mockchain.storage_classes.Transaction
 import jokrey.utilities.contains
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
-import java.lang.UnsupportedOperationException
 import java.security.KeyPair
 
 /**

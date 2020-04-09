@@ -1,7 +1,5 @@
 package jokrey.mockchain.storage_classes
 
-import java.lang.StringBuilder
-
 /**
  * A no longer mutable byte array. For example hash or proof extend from this class.
  * @author jokrey

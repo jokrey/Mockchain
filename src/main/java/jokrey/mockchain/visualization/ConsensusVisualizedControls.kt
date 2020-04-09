@@ -1,11 +1,13 @@
 package jokrey.mockchain.visualization
 
-import jokrey.mockchain.consensus.*
+import jokrey.mockchain.consensus.ConsensusAlgorithm
+import jokrey.mockchain.consensus.ManualConsensusAlgorithm
+import jokrey.mockchain.consensus.ProofOfStaticStake
+import jokrey.mockchain.consensus.ProofOfWorkConsensus
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField
 import jokrey.utilities.base64Decode
 import jokrey.utilities.base64Encode
-import java.lang.Exception
 import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.JCheckBox

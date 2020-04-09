@@ -2,9 +2,9 @@ package jokrey.mockchain.storage_classes
 
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.Application
-import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.squash.VirtualChange
+import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import java.util.*
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.locks.ReentrantReadWriteLock

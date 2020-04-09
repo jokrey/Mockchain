@@ -7,7 +7,6 @@ import jokrey.mockchain.network.ChainNode
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
-import java.util.*
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write

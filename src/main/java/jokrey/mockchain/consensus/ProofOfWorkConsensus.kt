@@ -6,7 +6,6 @@ import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.base64Decode
 import jokrey.utilities.base64Encode
 import jokrey.utilities.bitsandbytes.BitHelper
-import java.lang.IllegalStateException
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 

@@ -1,9 +1,7 @@
 package jokrey.mockchain.storage_classes
 
 import jokrey.mockchain.Nockchain
-import java.lang.IllegalStateException
 import java.net.InetSocketAddress
-import java.net.SocketAddress
 
 class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
     private val store = HashMap<Int, RecordedBlock>()
