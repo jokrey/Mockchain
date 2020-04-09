@@ -25,6 +25,12 @@ import kotlin.concurrent.write
  *   In certain(granted: rare) situations it can even be reasonable to run 2 chains from within the same program
  *   It can allow fine grained control for txs throughput and security. I.e. different tx, different stakeholder(different security clearances, some vote on that some vote on that)
  *
+ *
+ * TODO -
+ *   test
+ *   test
+ *   test
+ *     (actually distributed testing - I know that is annoying but it should kinda, mostly work now and we need to verify that)
  */
 class Nockchain : Mockchain {
     constructor(app: Application,
