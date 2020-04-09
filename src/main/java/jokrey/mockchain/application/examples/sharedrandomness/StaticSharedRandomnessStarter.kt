@@ -6,6 +6,7 @@ import jokrey.utilities.base64Encode
 import jokrey.utilities.decodeKeyPair
 import jokrey.utilities.encodeKeyPair
 import jokrey.utilities.misc.RSAAuthHelper
+import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.NodeCreator
 import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
@@ -24,6 +25,7 @@ import kotlin.system.exitProcess
  */
 
 fun main(args: Array<String>) {
+    var node : P2LNode? = null
     try {
         val ownName = if (!args.isEmpty()) args[0] else
             JOptionPane.showInputDialog("Enter own name") ?: return
@@ -49,30 +51,43 @@ fun main(args: Array<String>) {
         var rendezvousLink = P2Link.from(rendezvousAddress) as P2Link.Direct
 
 
-        val node = NodeCreator.create(ownLink)
+        node = NodeCreator.create(ownLink)
 
+
+
+
+        val selfIdentity = IdentityTriple(ownName, ownKeyPair.public.encoded, node.selfLink)
+
+        RendezvousServer.register(node, rendezvousLink, selfIdentity).waitForIt(10000)
 
         val connectedPeers = ArrayList<IdentityTriple>()
         val remainingNames = contactNames.toMutableList()
-        do {
-            val results = RendezvousServer.rendezvousWith(node, rendezvousLink,
-                    IdentityTriple(ownName, ownKeyPair.public.encoded, node.selfLink),
-                    10000,
-                    *contactNames.toTypedArray())
-
-            for (result in results) {
-                connectedPeers.add(result)
-                remainingNames.remove(result.name)
+        main@ while (connectedPeers.size < contactNames.size) {
+            val newlyFound = RendezvousServer.request(node, rendezvousLink, *remainingNames.toTypedArray())
+            for (it in newlyFound) {
+                println("attempt to = $it")
+                val success = node.establishConnection(it.link).getOrNull(5000)
+                println("connection to \"${it.name}\" - success = ${success} ")
+                if (success != null && success) {
+                    connectedPeers.add(it)
+                    remainingNames.remove(it.name)
+                }
             }
 
             if (remainingNames.isNotEmpty()) {
                 val newRendezvousAddress = JOptionPane.showInputDialog("Hi $ownName sorry, but:\nFailed to meet contacts at the rendezvous point within a certain time. Retry?\nEnter <ip/dns>:<port> of rendezvous server", rendezvousAddress)
+                val newRendezvousLink = P2Link.from(newRendezvousAddress) as P2Link.Direct
                 if (newRendezvousAddress == null) {
                     node.close()
                     exitProcess(1)
+                } else if(newRendezvousLink != rendezvousLink) {
+                    node.disconnectFrom(rendezvousLink)
+                    rendezvousLink = newRendezvousLink
+                    RendezvousServer.register(node, rendezvousLink, selfIdentity).waitForIt(10000)
                 }
             }
-        } while (remainingNames.isNotEmpty())
+        }
+
 
 
         val contacts = connectedPeers
@@ -91,6 +106,7 @@ fun main(args: Array<String>) {
         startAppUI(app, instance, ownName, ownKeyPair, contacts.map { Pair(it.name, base64Encode(it.publicKey)) }, allowEditingData = false, allowChoosingContacts = false)
     } catch (t: Throwable) {
         t.printStackTrace()
+        node?.close()
         exitProcess(1)
     }
 }
