@@ -17,10 +17,10 @@ import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.concurrent.RejectedExecutionException
 
-private const val TX_BROADCAST_TYPE:Int = 1
-private const val NEW_BLOCK_TYPE:Int = 2
-private const val TX_REQUEST:Int = 3
-private const val CATCH_ME_UP_IF_YOU_CAN: Int = 4
+private const val TX_BROADCAST_TYPE:Int = 9121
+private const val NEW_BLOCK_TYPE:Int = 9122
+private const val TX_REQUEST:Int = 9123
+private const val CATCH_ME_UP_IF_YOU_CAN: Int = 9124
 
 /**
  * This class is the connection to the peer to peer network.
