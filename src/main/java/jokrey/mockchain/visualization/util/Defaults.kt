@@ -19,6 +19,7 @@ import java.util.*
 
 open class EmptyApplication : Application {
     override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? = null //accept all
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
     override fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>) {}
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}

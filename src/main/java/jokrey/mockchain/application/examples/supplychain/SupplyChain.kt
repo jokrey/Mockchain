@@ -40,6 +40,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
     private val routeListeners = ArrayList<Pair<String, (SupplyRoute, Transaction) -> Unit>>()
 
     override fun preMemPoolVerify(instance: Mockchain, tx: Transaction): RejectionReason.APP_VERIFY? = null //accept all into mempool - todo this is not a necessity, some checks can be done here..
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 

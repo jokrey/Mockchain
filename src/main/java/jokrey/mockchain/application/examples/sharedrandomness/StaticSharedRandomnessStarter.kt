@@ -11,8 +11,13 @@ import jokrey.utilities.network.link2peer.P2Link
 import jokrey.utilities.network.link2peer.node.core.NodeCreator
 import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
 import jokrey.utilities.network.link2peer.rendezvous.RendezvousServer
+import jokrey.utilities.network.link2peer.util.P2LThreadPool
+import jokrey.utilities.simple.data_structure.queue.ConcurrentQueueTest.sleep
 import java.util.*
+import javax.swing.JFrame
 import javax.swing.JOptionPane
+import javax.swing.JPanel
+import javax.swing.ProgressMonitor
 import kotlin.system.exitProcess
 
 /**
@@ -25,14 +30,16 @@ import kotlin.system.exitProcess
  */
 
 fun main(args: Array<String>) {
-    var node : P2LNode? = null
+    var node: P2LNode? = null
     try {
+        println("you can also try as command arguments: <ownName> <own-link> <ownkeypairencoded> <rendezvousServerLink> <yes/no-to-blockchain-ui> <contact0> <contact1> <...more contacts>")
+
         val ownName = if (!args.isEmpty()) args[0] else
             JOptionPane.showInputDialog("Enter own name") ?: return
         if (ownName.isEmpty()) return
 
         val ownAddress = if (args.size > 1) args[1] else
-            JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of own node (or <port> if localhost)", "30104")
+            JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of own node (or name[<port>] if localhost)", "30104")
         val ownLink = P2Link.from(if (ownAddress.contains(":")) ownAddress else "$ownName[local=$ownAddress]")
 
         val ownKeyPairEncoded = if (args.size > 2) args[2] else
@@ -48,49 +55,57 @@ fun main(args: Array<String>) {
 
         val rendezvousAddress = if (args.size > 3) args[3] else
             JOptionPane.showInputDialog("$ownName please:\nEnter <ip/dns>:<port> of rendezvous server", "lmservicesip.ddns.net:40000")
-        var rendezvousLink = P2Link.from(rendezvousAddress) as P2Link.Direct
+        val rendezvousLink = P2Link.from(rendezvousAddress) as P2Link.Direct
 
 
         node = NodeCreator.create(ownLink)
-
-
 
 
         val selfIdentity = IdentityTriple(ownName, ownKeyPair.public.encoded, node.selfLink)
 
         RendezvousServer.register(node, rendezvousLink, selfIdentity).waitForIt(10000)
 
-        val connectedPeers = ArrayList<IdentityTriple>()
-        val remainingNames = contactNames.toMutableList()
-        main@ while (connectedPeers.size < contactNames.size) {
-            val newlyFound = RendezvousServer.request(node, rendezvousLink, *remainingNames.toTypedArray())
-            for (it in newlyFound) {
-                println("attempt to = $it")
-                val success = node.establishConnection(it.link).getOrNull(5000)
-                println("connection to \"${it.name}\" - success = ${success} ")
-                if (success != null && success) {
-                    connectedPeers.add(it)
-                    remainingNames.remove(it.name)
+        val monitor = ProgressMonitor(null, "Connecting...", "Trying to connect to ${contactNames.joinToString { it }}", 0, Integer.MAX_VALUE)
+        monitor.setProgress(0)
+
+        val connectedPeers = P2LThreadPool.executeSingle(P2LThreadPool.ProvidingTask<List<IdentityTriple>> {
+            val connectedPeers = ArrayList<IdentityTriple>()
+            val remainingNames = contactNames.toMutableList()
+            while (connectedPeers.size < contactNames.size && !monitor.isCanceled) {
+                //todo this is pull, it could be push
+                val newlyFound = RendezvousServer.request(node, rendezvousLink, *remainingNames.toTypedArray())
+                for (it in newlyFound) {
+                    println("attempt to = $it")
+                    val success = node.establishConnection(it.link).getOrNull(5000)
+                    println("connection to \"${it.name}\" - success = ${success} ")
+                    if (success != null && success) {
+                        connectedPeers.add(it)
+                        remainingNames.remove(it.name)
+                    }
+
+                    monitor.setProgress(connectedPeers.size)
+                    monitor.maximum = contactNames.size
+                    monitor.note = "Trying to connect to ${remainingNames.joinToString { it }}"
                 }
+
+                monitor.setProgress(connectedPeers.size)
+                monitor.maximum = contactNames.size
+                monitor.note = "Trying to connect to ${remainingNames.joinToString { it }}"
+
+                sleep(2500)
             }
+            return@ProvidingTask connectedPeers
+        })
 
-            if (remainingNames.isNotEmpty()) {
-                val newRendezvousAddress = JOptionPane.showInputDialog("Hi $ownName sorry, but:\nFailed to meet contacts at the rendezvous point within a certain time. Retry?\nEnter <ip/dns>:<port> of rendezvous server", rendezvousAddress)
-                val newRendezvousLink = P2Link.from(newRendezvousAddress) as P2Link.Direct
-                if (newRendezvousAddress == null) {
-                    node.close()
-                    exitProcess(1)
-                } else if(newRendezvousLink != rendezvousLink) {
-                    node.disconnectFrom(rendezvousLink)
-                    rendezvousLink = newRendezvousLink
-                    RendezvousServer.register(node, rendezvousLink, selfIdentity).waitForIt(10000)
-                }
-            }
-        }
+        //connection to rendezvous remains open - in case another peer wants to connect or reconnect later...
 
 
+        val contacts = connectedPeers.get(120 * 1000)
 
-        val contacts = connectedPeers
+        monitor.close()
+
+        if(contacts.size != contactNames.size)
+            exitProcess(2)
 
         val app = StaticSharedRandomness(ownName, ownKeyPair,
                 contacts.map { StaticSharedRandomnessParticipant(it.name, it.publicKey) } + StaticSharedRandomnessParticipant(ownName, ownKeyPair.public.encoded),

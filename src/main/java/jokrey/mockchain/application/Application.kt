@@ -51,7 +51,7 @@ interface Application {
      *
      * This method should never change the application state.
      */
-    fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
+    fun newTxInMemPool(instance: Mockchain, tx: Transaction)
 
     /**
      * Returns the Transactions that were rejected

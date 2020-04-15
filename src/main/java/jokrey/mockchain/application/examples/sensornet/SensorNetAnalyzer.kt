@@ -31,6 +31,7 @@ class SensorNetAnalyzer: VisualizableApp {
             return RejectionReason.APP_VERIFY("dependencies not empty and not even or contain non-replace or non-build-upon edges")
         return null //accepted
     }
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
 
     //cannot introduce change before build upon, is this the right way or should the average be pre calculated??

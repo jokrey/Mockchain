@@ -25,6 +25,7 @@ class CurrencyWithHistory : VisualizableApp {
             return RejectionReason.APP_VERIFY("has dependencies")
         return null //accepted
     }
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
 

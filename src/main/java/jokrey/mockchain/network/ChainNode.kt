@@ -44,7 +44,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         p2lNode.addBroadcastListener {
             when(it.header.type.toInt()) {
                 TX_BROADCAST_TYPE -> {
-                    //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - <2 packages.
+                    //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - likely <2 packages.
                     val receivedTx = Transaction.decode(it.asBytes())
                     instance.log("received tx = $receivedTx - from: ${it.source}")
                     instance.commitToMemPool(receivedTx, false)
@@ -53,7 +53,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         }
 
         p2lNode.registerConversationFor(TX_REQUEST) { convo, m0 ->
-            //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - <2 packages.
+            //todo - is this safe or should the tx be streamed?? OR-BETTER: MAX TX SIZE of like 10000 bytes - likely <2 packages.
 
             val requestedTxp = TransactionHash(m0.asBytes(), true)
 //            instance.log("received request for $requestedTxp")
@@ -69,7 +69,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         p2lNode.registerConversationFor(CATCH_ME_UP_IF_YOU_CAN, this::catchMeUp_server_init)
     }
 
-    internal fun relayValidBlock(block: Block, exception: SocketAddress? = null) {
+    internal fun relayValidBlock(block: Block, exception: InetSocketAddress? = null) {
         pool.executeThreadedSuccessCounter(p2lNode.establishedConnections.map { peer ->
             P2LThreadPool.Task {
                 val to = peer.address

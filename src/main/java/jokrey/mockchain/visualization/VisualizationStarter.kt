@@ -113,6 +113,7 @@ fun startNetworkChooser(frame: Component? = null): P2Link? {
             ?: return null
 
     val split = result.split(":")
+    if(split.size != 2) return null
     return P2Link.Direct(split[0], split[1].toInt())
 }
 

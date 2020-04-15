@@ -29,6 +29,7 @@ class Currency : VisualizableApp {
             return RejectionReason.APP_VERIFY("dependencies illegal(have to be 0 or 4 and only replace-partial and replaced-by)")
         return null //accepted
     }
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
 
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()

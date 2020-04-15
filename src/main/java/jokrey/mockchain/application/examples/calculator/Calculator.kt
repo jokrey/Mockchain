@@ -72,6 +72,11 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         return null //accepted
     }
 
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {
+        updateLastInStrings(tx)
+    }
+
+
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
         val virtualResults = results.clone() as HashMap<Int, Double>
 
@@ -126,12 +131,16 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         }
     }
 
-    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {}
+    override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
+        for(string in calcFromTx(oldTx).strings)
+            lastTransactionsInString(string).remove(oldTx)
+    }
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         for(string in calcFromTx(oldTx).strings) {
-            val oldIndex = lastTransactionsInString(string).indexOf(oldTx)
-            if(oldIndex>=0 && oldIndex < lastTransactionsInString(string).size)
-                lastTransactionsInString(string)[oldIndex] = newTx
+            val lastTxsInString = lastTransactionsInString(string)
+            val oldIndex = lastTxsInString.indexOf(oldTx)
+            if(oldIndex>=0 && oldIndex < lastTxsInString.size)
+                lastTxsInString[oldIndex] = newTx
         }
     }
     override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
@@ -185,8 +194,6 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
 //                }
             }
         }
-
-        updateLastInStrings(newTx)
         return Optional.of(newTx)
     }
 
