@@ -64,7 +64,9 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
 
     override fun resume() {
         super.resume()
-        condition.signal()
+        lock.withLock {
+            condition.signal()
+        }
     }
 
 

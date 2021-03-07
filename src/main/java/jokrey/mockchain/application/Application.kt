@@ -50,6 +50,8 @@ interface Application {
      * Note that just because this method is called, there is no guarantee that the transaction is ever persisted or an influence on the application state.
      *
      * This method should never change the application state.
+     *
+     * This method is not necessarily called when a tx is directly persisted through fork or catch-up functionality.
      */
     fun newTxInMemPool(instance: Mockchain, tx: Transaction)
 

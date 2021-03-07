@@ -83,15 +83,25 @@ class Nockchain : Mockchain {
     }
 
 
-    internal var isInPausedRecordMode: Boolean = false
     private val rwLock = ReentrantReadWriteLock()
     fun<T> requireNonPaused(action: ()->T) = rwLock.read { action() }
+    fun<T> requireNonPausedOr(action: ()->T, backupAction:()->T) : T {
+        val rl = rwLock.readLock()
+        return if(rl.tryLock()) {
+            try {
+                action()
+            } finally {
+                rl.unlock()
+            }
+        } else {
+            backupAction()
+        }
+    }
     /**
      * Pauses: consensus algorithm, chain node block receival(recorded)
      */
     fun<T> pauseAndRecord(action: ()->T) = rwLock.write {
         consensus.pause()
-        isInPausedRecordMode = true
 
         try {
             action()
@@ -99,7 +109,6 @@ class Nockchain : Mockchain {
             blockRecorder.applyRecordedBlocks()
 
             consensus.resume()
-            isInPausedRecordMode = false
         }
     }
 

@@ -21,7 +21,7 @@ open class Mockchain(internal var app: Application,
                      consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
     internal val memPool = MemPool()
     internal val chain = Chain(app, this, store)
-    internal val consensus =  consensus.create(this)
+    val consensus =  consensus.create(this)
 
     init {
         this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass nockchain is not initialized yet.

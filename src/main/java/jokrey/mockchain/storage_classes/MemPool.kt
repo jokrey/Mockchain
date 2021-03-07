@@ -47,6 +47,8 @@ class MemPool : TransactionResolver {
         changeOccurredCallbacks.add(changeOccurredCallback)
     }
     private fun fireChangeOccurred() {
-        for(c in changeOccurredCallbacks) c()
+        try {
+            for (c in changeOccurredCallbacks) c()
+        } catch (t: Throwable) {System.err.println("mem pool callbacks are not supposed to throw exceptions.")}
     }
 }

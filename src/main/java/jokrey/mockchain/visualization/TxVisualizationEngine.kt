@@ -14,6 +14,7 @@ import jokrey.utilities.animation.util.AEPoint
 import jokrey.utilities.animation.util.AERect
 import jokrey.utilities.animation.util.AESize
 import jokrey.utilities.debug_analysis_helper.TimeDiffMarker
+import java.lang.Exception
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -68,7 +69,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
                     } else {
                         try {
                             //levels will NOT contain previous - and previously calculated - data!!! NOT a to do
-                            var levels = fillLevelsFor(block.map { resolver[it] })
+                            var levels = fillLevelsFor(block.mapNotNull { resolver.getUnsure(it) })
                             levels = levels.toList().sortedBy { (_, value) -> value }.toMap()
 
                             var yCounter = 0.75
@@ -131,7 +132,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
                         }
                     }
                 }
-                TimeDiffMarker.println("untangling")
+                TimeDiffMarker.println("untangling", 0.25)
 
             } catch (ex: IllegalArgumentException) {
                 clearObjects()
@@ -142,7 +143,11 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
 
 
     fun recalculateTransactionDisplay() {
-        setBlocksToDisplay(instance.chain.getBlocks(), instance.memPool.getTransactionHashes())
+        try {
+            setBlocksToDisplay(instance.chain.getBlocks(), instance.memPool.getTransactionHashes())
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     private fun paintSequence(tx:Transaction, levels:Map<Transaction, Int>, alreadyPainted:MutableMap<Transaction, TransactionDisplayObject>, xOffset: Double, yCounterAtStart:Double, txIsMemPool: Boolean) : Double {
         val resolver = instance.memPool.combineWith(instance.chain)

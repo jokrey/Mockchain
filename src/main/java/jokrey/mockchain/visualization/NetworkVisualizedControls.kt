@@ -1,5 +1,6 @@
 package jokrey.mockchain.visualization
 
+import jokrey.mockchain.Nockchain
 import jokrey.mockchain.network.ChainNode
 import jokrey.utilities.network.link2peer.P2Link
 import java.awt.BorderLayout
@@ -46,7 +47,7 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
     }
 
     val connectToCallback = ActionListener {
-        node.connect(P2Link.from(connectToInputField.text))
+        (frame.instance as Nockchain).connect(P2Link.from(connectToInputField.text), catchup = true)
         connectToInputField.text = ""
     }
     connectToButton.addActionListener(connectToCallback)

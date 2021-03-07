@@ -32,7 +32,11 @@ fun Iterable<Dependency>.replace(dependency: Dependency, txp: TransactionHash): 
 fun Iterable<Dependency>.find(vararg typesAllowed: DependencyType): Dependency =
         find {dep -> typesAllowed.any { it == dep.type } }!!
 fun Iterable<Dependency>.filter(vararg typesAllowed: DependencyType): List<Dependency> =
-        filter {dep -> typesAllowed.any { it == dep.type } }
+    filter {dep -> typesAllowed.any { it == dep.type } }
+fun Iterable<Dependency>.equivalent(vararg typesAllowed: DependencyType): Boolean {
+    val l = map { it.type }
+    return l.size == typesAllowed.size && l.containsAll(typesAllowed.toList())
+}
 
 /**
  * Enumerable class for the six different dependency types whose behavior is enforced in the squash algorithm

@@ -58,7 +58,7 @@ class CalculatorTest {
             val (performConsensusEvery, squashEveryNRounds) = variation
             val app = SingleStringCalculator()
             val instance = Mockchain(app, consensus = ManualConsensusAlgorithmCreator(squashEveryNRounds))
-            instance.consensus as ManualConsensusAlgorithm
+            val consensus = instance.consensus as ManualConsensusAlgorithm
 
 //            println("variation; consensusEvery: $performConsensusEvery, squashEvery: ${chain.squashEveryNRounds}")
 
@@ -73,9 +73,9 @@ class CalculatorTest {
                 instance.commitToMemPool(new)
 
                 if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mempool
-                    instance.consensus.performConsensusRound(false)
+                    consensus.performConsensusRound(false)
             }
-            instance.consensus.performConsensusRound(false)
+            consensus.performConsensusRound(false)
 
             if(definiteState==null)
                 definiteState = app.exhaustiveStateDescriptor()
@@ -84,7 +84,7 @@ class CalculatorTest {
 
             assertEquals(result, app.getResults()[0])
 
-            instance.consensus.performConsensusRound(true)
+            consensus.performConsensusRound(true)
 
             assertEquals(definiteState, app.exhaustiveStateDescriptor())
 

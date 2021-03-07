@@ -19,14 +19,12 @@ import javax.swing.JPanel
  */
 
 fun getAppropriateConsensusControlPanel(frame: VisualizationFrame, consensus: ConsensusAlgorithm) :JPanel? {
-    if(consensus is ManualConsensusAlgorithm) {
-        return getManualConsensusControlPanel(frame, consensus)
-    } else if(consensus is ProofOfStaticStake) {
-        return getProofOfStaticStakeControlPanel(frame, consensus)
-    } else if(consensus is ProofOfWorkConsensus) {
-        return getProofOfWorkControlPanel(frame, consensus)
+    return when (consensus) {
+        is ManualConsensusAlgorithm -> getManualConsensusControlPanel(frame, consensus)
+        is ProofOfStaticStake -> getProofOfStaticStakeControlPanel(frame, consensus)
+        is ProofOfWorkConsensus -> getProofOfWorkControlPanel(frame, consensus)
+        else -> null
     }
-    return null
 }
 
 fun getProofOfWorkControlPanel(frame: VisualizationFrame, consensus: ProofOfWorkConsensus): JPanel {

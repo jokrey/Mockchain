@@ -7,6 +7,7 @@ import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
 import jokrey.mockchain.visualization.VisualizableApp
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.string.LITagStringEncoder
+import java.lang.System.err
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -69,12 +70,12 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         } catch (ex: Exception) {
             return RejectionReason.APP_VERIFY("exception thrown - ${ex.message}")
         }
+
+        updateLastInStrings(tx)
         return null //accepted
     }
 
-    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {
-        updateLastInStrings(tx)
-    }
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
 
 
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
@@ -83,8 +84,14 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         val denied = ArrayList<Pair<Transaction, RejectionReason.APP_VERIFY>>()
         for(tx in txs) {
             val c = calcFromTx(tx)
-            if (!tryUpdateResult(virtualResults, c))
-                denied.add(Pair(tx, RejectionReason.APP_VERIFY("could not update result (for example /0) - MATH ERROR")))
+            if(! verify(c))
+                denied.add(Pair(tx, RejectionReason.APP_VERIFY("custom calculator override rejection rejected")))
+            else if(c.strings.size > maxDependencies)
+                denied.add(Pair(tx, RejectionReason.APP_VERIFY("exceeded max dependencies($maxDependencies) with ${c.strings.size} dependencies in tx")))
+            else if (!tryUpdateResult(virtualResults, tx, c))
+                denied.add(Pair(tx, RejectionReason.APP_VERIFY("could not update result (for example /0) - MATH ERROR - OR could not find dependency")))
+//            else
+//                updateLastInStrings(tx)
         }
         return denied
     }
@@ -94,34 +101,39 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         for(tx in newTransactions) {
             val calculation = calcFromTx(tx)
 
-            if(!tryUpdateResult(results, calculation))
+            if(!tryUpdateResult(results, tx, calculation))
                 throw Error("This is a fatal error - how did verify not get this??") //throwing an exception here leads to inconsistent lastTransactionsInStrings states - and the exception should not occur
 
             for (string in calculation.strings) {
                 //remove all tx up until this tx, there may have been newer once added since, but remove all up until this point
-                val iterator = lastTransactionsInString(string).iterator()
+                val lastInString = lastTransactionsInString(string)
+                var size = lastInString.size
+                val iterator = lastInString.iterator()
                 while (iterator.hasNext()) {
                     val it = iterator.next()
                     if(it == tx) break
-                    else iterator.remove()
+                    else if(size-1 >= 1) {
+                        iterator.remove()
+                        size--
+                    }
                 }
+                println("lastTransactionsInString("+string+") = ${lastTransactionsInString(string)}")
             }
-
         }
+        err.println("exhaustiveStateDescriptor() = ${exhaustiveStateDescriptor()}")
     }
 
-    private fun tryUpdateResult(res: HashMap<Int, Double>, c: Calculation): Boolean {
-        return if(! verify(c) || c.strings.size > maxDependencies) {
-            LOG.finest("!verify(c) = ${!verify(c)}")
-            LOG.finest("c.strings.size > maxDependencies = ${c.strings.size > maxDependencies}")
-            false
-        } else {
+    private fun tryUpdateResult(res: HashMap<Int, Double>, rawTx: Transaction, c: Calculation): Boolean {
             //todo this leads to unexpected results: a combined chain (strings: 0,1) that gets build upon by another (0,1) is calculated as:
             //       x0  x1  amount, where x0==x1 - even though it would intuitively be x01  amount
             //       also build upon algorithm has to do some complex filtering to imitate this weird behaviour
-            val previousResultsInRelevantStrings = res.filterKeys { string -> c.strings.contains(string) }.map { it.value }.toDoubleArray()
+        val previousResultsInRelevantStrings = res.filterKeys { string -> c.strings.contains(string) }.map { it.value }.toDoubleArray()
+        return if(previousResultsInRelevantStrings.size != rawTx.bDependencies.size/2) {
+            err.println("previousResultsInRelevantStrings.size != rawTx.bDependencies.size/2 = ${previousResultsInRelevantStrings.size} != ${rawTx.bDependencies.size/2}")
+            false
+        } else {
             val result = c.perform(*previousResultsInRelevantStrings)
-            if(java.lang.Double.isNaN(result) || java.lang.Double.isInfinite(result)) //when does not work with NaN, because it does === check - but NaN !== NaN - but NaN.equals(NaN), so(in kotlin): NaN == NaN
+            if (java.lang.Double.isNaN(result) || java.lang.Double.isInfinite(result)) //when does not work with NaN, because it does === check - but NaN !== NaN - but NaN.equals(NaN), so(in kotlin): NaN == NaN
                 false
             else {
                 for (string in c.strings)
@@ -132,8 +144,8 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     }
 
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
-        for(string in calcFromTx(oldTx).strings)
-            lastTransactionsInString(string).remove(oldTx)
+//        for(string in calcFromTx(oldTx).strings)
+//            lastTransactionsInString(string).remove(oldTx)
     }
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         for(string in calcFromTx(oldTx).strings) {
@@ -144,8 +156,9 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         }
     }
     override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
-        for(string in calcFromTx(oldTx).strings)
-            lastTransactionsInString(string).remove(oldTx)
+//        if(reason !is RejectionReason.PRE_MEM_POOL)
+//            for(string in calcFromTx(oldTx).strings)
+//                lastTransactionsInString(string).remove(oldTx)
     }
 
 

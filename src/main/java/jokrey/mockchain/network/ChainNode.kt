@@ -242,30 +242,30 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         val newBlockHeight = m0.nextInt()
         instance.log("received unconfirmed block header part = (newBlockHash=$newBlockHash, previousBlockHash=$previousBlockHash, newBlockHeight=$newBlockHeight)")
 
-        if (instance.isInPausedRecordMode) {
+        instance.requireNonPausedOr({
+            val latestLocalBlockHash = instance.chain.getLatestHash()
+            if (latestLocalBlockHash != previousBlockHash) {
+                instance.log("latest block hash different(fork or someone is behind)")
+                val ownBlockHeight = instance.chain.blockCount()
+                if (newBlockHeight <= ownBlockHeight) {
+                    instance.log("rejected block($newBlockHeight) hash= $newBlockHash, remote is behind(our height is $ownBlockHeight)")
+                    convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
+                } else {
+                    instance.log("remote submitted a block ahead(ourHeight=$ownBlockHeight, remoteHeight=$newBlockHeight). Beginning fork protocol")
+
+                    val m1 = convo.answerExpect(byteArrayOf(ACCEPT_FORK))
+                    acceptFork_Protocol(convo, newBlockHeight, m1)
+                }
+            } else {
+                val m1 = convo.answerExpect(byteArrayOf(CONTINUE))
+                newBlockConversation_server_default(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
+            }
+        },
+        {
+            //IF IS IN PAUSED+RECORD MODE
             val m1 = convo.answerExpect(byteArrayOf(CONTINUE_ALL_AT_ONCE))
             newBlockConversation_server_pathRecordMode(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
-        } else {
-            instance.requireNonPaused {
-                val latestLocalBlockHash = instance.chain.getLatestHash()
-                if (latestLocalBlockHash != previousBlockHash) {
-                    instance.log("latest block hash different(fork or someone is behind)")
-                    val ownBlockHeight = instance.chain.blockCount()
-                    if (newBlockHeight <= ownBlockHeight) {
-                        instance.log("rejected block($newBlockHeight) hash= $newBlockHash, remote is behind(or height is $ownBlockHeight)")
-                        convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
-                    } else {
-                        instance.log("remote submitted a block ahead(ourHeight=$ownBlockHeight, remoteHeight=$newBlockHeight). Beginning fork protocol")
-
-                        val m1 = convo.answerExpect(byteArrayOf(ACCEPT_FORK))
-                        acceptFork_Protocol(convo, newBlockHeight, m1)
-                    }
-                } else {
-                    val m1 = convo.answerExpect(byteArrayOf(CONTINUE))
-                    newBlockConversation_server_default(convo, newBlockHash, previousBlockHash, newBlockHeight, m1)
-                }
-            }
-        }
+        })
     }
 
     private fun newBlockConversation_client_init(to: InetSocketAddress, block: Block) {
@@ -380,11 +380,13 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
 
                                 val (newSquashState, newBlockId) = instance.consensus.attemptVerifyAndAddForkedBlock(latestReceivedBlock, i, txsInBlock.asTxResolver(), forkSquashState, forkApp, isFirst) //forked version does not commit...
                                 forkSquashState = newSquashState
+                                forkApp.newBlock(instance, latestReceivedBlock, txsInBlock)
+
                                 if (newBlockId == -1) {
                                     instance.log("adding fork block rejected, rejected block = $latestReceivedBlock")
                                     instance.chain.store.cancelUncommittedChanges()
                                     convo.answerClose(byteArrayOf(TX_VERIFICATION_FAILED))
-                                    throw IllegalStateException("SIMULTANEOUS ACCESS LIKELY")
+                                    throw IllegalStateException("SIMULTANEOUS ACCESS CAN LEAD TO THIS - OR REMOTE IS BAD NODE")
                                 } else if (newBlockId != i) {
                                     instance.log("not all tx of remote block valid or wrong id(should be $i, was $newBlockId), rejected block = $latestReceivedBlock")
                                     instance.chain.store.cancelUncommittedChanges()

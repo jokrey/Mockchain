@@ -68,11 +68,11 @@ class HashStressTest {
 
             if(numberOfGeneratedTx % blockEveryTx == 0) {
                 val squash = numberOfGeneratedBlocks!=0 && numberOfGeneratedBlocks % squashEveryBlock == 0
-                instance.consensus.performConsensusRound(squash)
+                (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squash)
                 numberOfGeneratedBlocks++
             }
         }
 
-        instance.consensus.performConsensusRound(squashEnd)
+        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squashEnd)
     }
 }

@@ -99,6 +99,25 @@ class Chain(val app: Application,
 
             if(squash)
                 TODO()
+//            app.newBlock(instance, relayBlock, proposed)
+
+//            val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
+//
+//            val squashStateToIntroduce = newSquashState ?: priorSquashState
+//            priorSquashState = squashStateToIntroduce
+//            if (squash && squashStateToIntroduce != null) {
+//                //todo - squash reintroduction, the following code could be, but may not be right
+//
+////                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray())
+////                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+////                //     solve: app is presented with the relay block
+////
+////                squashStateToIntroduce.reset()
+////                proposedTransactions.clear()
+////                proposedTransactions.addAll(newlyProposedTx)
+////                if (newLatestBlockHash != null)
+////                    latestHash = newLatestBlockHash
+//            }
 
             if(newBlockId != lastPersistedId+1 && !isFirst)
                 return -1
@@ -344,10 +363,7 @@ class Chain(val app: Application,
      */
     fun getBlocks(): Array<Block> {
         rwLock.read {
-            val iterator = store.iterator()
-            return Array(store.numberOfBlocks()) {
-                iterator.next()
-            }
+            return store.iterator().asSequence().toList().toTypedArray()
         }
     }
 

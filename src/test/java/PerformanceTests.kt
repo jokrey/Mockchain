@@ -176,7 +176,7 @@ class PerformanceTests {
                         AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                        BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
                     }
-                        instance.consensus.performConsensusRound(squash)
+                        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squash)
                 numberOfGeneratedBlocks++
                     if(squash) {
                         AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
@@ -196,7 +196,7 @@ class PerformanceTests {
             if(squashEnd){ AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
             }
-        instance.consensus.performConsensusRound(squashEnd)
+        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squashEnd)
         maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             if(squashEnd) { AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_end(callIdRelevantSection)
