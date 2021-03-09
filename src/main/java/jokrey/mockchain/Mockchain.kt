@@ -4,6 +4,7 @@ import jokrey.mockchain.application.Application
 import jokrey.mockchain.consensus.ConsensusAlgorithmCreator
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
 import jokrey.mockchain.storage_classes.*
+import jokrey.utilities.misc.Listenable
 import java.lang.System.err
 
 /**
@@ -16,12 +17,19 @@ import java.lang.System.err
  * However the consensus algorithm already includes the squash feature that allows applications to selectively minimize their data usage after the fact.
  */
 
-open class Mockchain(internal var app: Application,
+open class Mockchain(app: Application,
                      store: StorageModel = NonPersistentStorage(),
                      consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
+    var app = app
+        internal set(value) {
+            field = value
+            appListenable.notify(value)
+        }
     internal val memPool = MemPool()
     internal val chain = Chain(app, this, store)
     val consensus =  consensus.create(this)
+
+    val appListenable = Listenable<Application>()
 
     init {
         this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass nockchain is not initialized yet.
@@ -77,14 +85,15 @@ open class Mockchain(internal var app: Application,
         log("mockchain - block locally added")
     }
 
-    internal open fun log(s: String) {
+    open fun log(s: String) {
         err.println(s)
     }
 
     override fun close() {
-//        consensus.close()
-//        chain.close()
-        throw IllegalAccessError("cannot close a blockchain... But note that if you don't you (might) get a memory leak.")
+        consensus.stop()
+        chain.close()
+        app.close()
+//        throw IllegalAccessError("cannot close a blockchain... But note that if you don't you (might) get a memory leak.")
     }
 }
 

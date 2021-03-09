@@ -43,7 +43,6 @@ class StaticSharedRandomness(val ownName: String, val ownKeyPair: KeyPair, val p
         if(! participants.any { it.publicKey.contentEquals(ownKeyPair.public.encoded) }) throw IllegalArgumentException("own key pair public key is not included in given list of participants")
 
         addRawChallengeCompletedInMemPoolListener { _, _ ->
-            println("test")
             consensus?.proposeBlockIfMyTurn()
         }
     }

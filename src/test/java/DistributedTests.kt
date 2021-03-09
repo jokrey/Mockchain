@@ -574,8 +574,10 @@ class DistributedTests {
 }
 
 private fun putBlocks(instance: Mockchain, blocks: List<Block>, stopWithSize: Int = (blocks.size)) {
-    for(i in 0 until stopWithSize) instance.chain.store.add(blocks[i])
-    instance.chain.store.commit()
+    for(i in 0 until stopWithSize) {
+        instance.chain.store.add(blocks[i])
+        instance.chain.store.blockCommit()
+    }
 }
 
 private fun assertForkIndexCorrect(expectedForkIndex: Int, forkPointIn1: Int, instance1: Mockchain, instance2: Mockchain) {

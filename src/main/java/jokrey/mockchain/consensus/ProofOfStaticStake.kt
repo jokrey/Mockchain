@@ -31,8 +31,13 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     fun confidenceMinDirectSuccessor() = 0.8
     fun confidenceMinAllowNext() = 0.61
 
+    var stopped = false
+    override fun stop() {
+        stopped = true
+    }
+
     override fun run() {
-        while(true) {
+        while(!stopped) {
             if(lastBlockAddedTimestamp == -1L) {
                 if(preApprovedIdentitiesPKs.findIndex(ownKeyPair.public.encoded) == 0)
                     proposeBlock()
@@ -54,12 +59,15 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
 
     //will not return before notifyNewLatestBlockPersisted - which resets the parameters
     private fun proposeBlock() {
-        if(isPaused) return
+        if(isPaused || stopped) return
 
         val selectedTxs = instance.memPool.getTransactions().toMutableList()
         if(selectedTxs.isEmpty()) return //todo - should this be done differently? - this leads to multiple parties instantly proposing when the new tx is finally available to the mem pool
 
-        val newSquashState = removeAllRejectedTransactionsFrom(ownKeyPair.public.encoded, selectedTxs) //VERY IMPORTANT LINE
+        val newSquashState = removeAllRejectedTransactionsFrom(
+            blockCreatorIdentity = ownKeyPair.public.encoded,
+            proposed = selectedTxs
+        ) //VERY IMPORTANT LINE
         val merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 

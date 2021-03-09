@@ -38,7 +38,10 @@ class TriggeredProofOfStaticStake(instance: Mockchain, val preApprovedIdentities
         val selectedTxs = instance.memPool.getTransactions().toMutableList()
         if(selectedTxs.isEmpty()) return //todo - should this be done differently? - this leads to multiple parties instantly proposing when the new tx is finally available to the mem pool
 
-        val newSquashState = removeAllRejectedTransactionsFrom(ownKeyPair.public.encoded, selectedTxs) //VERY IMPORTANT LINE
+        val newSquashState = removeAllRejectedTransactionsFrom(
+            blockCreatorIdentity = ownKeyPair.public.encoded,
+            proposed = selectedTxs
+        ) //VERY IMPORTANT LINE
         val merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 

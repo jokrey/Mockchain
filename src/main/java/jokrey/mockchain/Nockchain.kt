@@ -47,13 +47,15 @@ class Nockchain : Mockchain {
     fun connect(links: List<P2Link>, catchup: Boolean = false) {
         connect(links = *links.toTypedArray(), catchup = catchup)
     }
-    /** @see P2LNode.establishConnections */
-    fun connect(vararg links: P2Link, catchup: Boolean = false) {
-        if(links.isEmpty()) return
+    /** @see P2LNode.establishConnections
+     * */
+    fun connect(vararg links: P2Link, catchup: Boolean = false): Boolean {
+        if(links.isEmpty()) return false
         node.connect(*links)
 
         if(catchup)
-            node.catchMeUpTo(*links)
+            return node.catchMeUpTo(*links)
+        return true
     }
     /** @see P2LNode.recursiveGarnerConnections */
     fun recursiveConnect(connectionLimit:Int, vararg links: P2Link, catchup: Boolean = false) {

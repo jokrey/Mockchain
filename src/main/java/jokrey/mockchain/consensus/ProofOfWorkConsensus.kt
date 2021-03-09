@@ -43,6 +43,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
 
     private val lock = ReentrantLock()
     private val condition = lock.newCondition()
+    private var stopped = false
 
     //only access in synchronization blocks
     private var newSquashStateInCaseOfApproval: SquashAlgorithmState? = null
@@ -54,7 +55,10 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
         lock.withLock {
             latestBlockHash = instance.chain.getLatestHash()
             selectedTxs = selectTransactions()
-            newSquashStateInCaseOfApproval = removeAllRejectedTransactionsFrom(minerIdentity, selectedTxs as MutableList<Transaction>) //VERY IMPORTANT LINE
+            newSquashStateInCaseOfApproval = removeAllRejectedTransactionsFrom(
+                blockCreatorIdentity = minerIdentity,
+                proposed = selectedTxs as MutableList<Transaction>
+            ) //VERY IMPORTANT LINE
             merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
             currentNonce = 0
 
@@ -69,12 +73,18 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
         }
     }
 
+    override fun stop() {
+        stopped = true
+        resume() //signal
+    }
+
 
     final override fun run() {
-        while(true) {
+        while(!stopped) {
             lock.withLock {
-                while (selectedTxs.isEmpty() || isPaused)
+                while (!stopped && (selectedTxs.isEmpty() || isPaused))
                     condition.await()
+                if(stopped) return@withLock
 
                 //could be cached
                     val proofToSolve = ByteArray(1 + 4 + minerIdentity.size)

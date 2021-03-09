@@ -652,14 +652,15 @@ class GeneralTests {
 
     @Test
     fun testDoubleReplaceSecondTxOnlyDenied() {
-        val app = EmptyApplication()
-        val instance = Mockchain(app)
+        val instance = Mockchain(EmptyApplication())
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain.store,
+            instance.chain.app.getPartialReplaceSquashHandler(), instance.chain.app.getBuildUponSquashHandler(), instance.chain.app.getSequenceSquashHandler(),
+            instance.memPool.getTransactions())
 
         println("denied = ${denied}")
 
@@ -671,7 +672,6 @@ class GeneralTests {
     fun unfoundDependencyRelationOnPartialDelayedSquash_noLongerFails() {
         val app = EmptyApplication()
         val instance = Mockchain(app)
-        instance.consensus as ManualConsensusAlgorithm
 
         //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
         //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
@@ -684,12 +684,19 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         //if we used verifyAll here this would work (i.e. correctly deny tx1
-        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
+        val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain.store, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
 
         assertEquals(1, denied.size)
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)), denied[0].first)
 
-        val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions())
+        val state = jokrey.mockchain.squash.findChanges(
+            instance.chain.store,
+            null,
+            app.getBuildUponSquashHandler(),
+            app.getSequenceSquashHandler(),
+            app.getPartialReplaceSquashHandler(),
+            instance.memPool.getTransactions()
+        )
         assertTrue(state.rejections.isNotEmpty())
 
     }
@@ -707,13 +714,20 @@ class GeneralTests {
 
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
-            val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
+            val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain.store, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), instance.memPool.getTransactions())
 
 
             assertEquals(1, denied.size)
             assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
 
-            val state = jokrey.mockchain.squash.findChanges(instance.chain, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(), null, instance.memPool.getTransactions())
+            val state = jokrey.mockchain.squash.findChanges(
+                instance.chain.store,
+                null,
+                app.getBuildUponSquashHandler(),
+                app.getSequenceSquashHandler(),
+                app.getPartialReplaceSquashHandler(),
+                instance.memPool.getTransactions()
+            )
             assertTrue(state.rejections.isNotEmpty())
         }
 

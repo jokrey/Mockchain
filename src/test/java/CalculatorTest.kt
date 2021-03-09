@@ -28,27 +28,21 @@ class CalculatorTest {
         val calcs = Array(4) {
             if(it == 0) {
                 result = 123.0
-//                println("Initial(123.0)")
                 Initial(123.0)
             } else if(it % 4 == 0) {
                 result += (it / 4).toDouble()
-//                println("Addition(${(it / 4).toDouble()})")
                 Addition((it / 4).toDouble())
             } else if(it % 4 == 1) {
                 result -= (it / 4).toDouble()
-//                println("Subtraction(${(it / 4).toDouble()})")
                 Subtraction((it / 4).toDouble())
             } else if(it % 4 == 2 && it/4 != 0) {
                 result /= (it / 4).toDouble()
-//                println("Division(${(it / 4).toDouble()})")
                 Division((it / 4).toDouble())
             } else if(it % 4 == 2) {
                 result *= (it).toDouble()
-//                println("Multiplication(${(it / 4).toDouble()})")
                 Multiplication((it * 101).toDouble())
             } else {
                 result *= (it / 4).toDouble()
-//                println("Multiplication(${(it / 4).toDouble()})")
                 Multiplication((it / 4).toDouble())
             }
         }
@@ -59,8 +53,6 @@ class CalculatorTest {
             val app = SingleStringCalculator()
             val instance = Mockchain(app, consensus = ManualConsensusAlgorithmCreator(squashEveryNRounds))
             val consensus = instance.consensus as ManualConsensusAlgorithm
-
-//            println("variation; consensusEvery: $performConsensusEvery, squashEvery: ${chain.squashEveryNRounds}")
 
             for ((i, calc) in calcs.withIndex()) {
                 val last = app.getLastInString(calc.string)

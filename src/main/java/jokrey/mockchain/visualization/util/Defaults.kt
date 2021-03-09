@@ -26,7 +26,7 @@ open class EmptyApplication : Application {
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {}
     override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) { }
 
-    //    override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {list, b -> list.flatMap { (it + b).asIterable() }.toByteArray() }
+//    override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {list, b -> list.flatMap { (it + b).asIterable() }.toByteArray() }
 //    override fun getPartialReplaceSquashHandler(): PartialReplaceSquashHandler = { latestContent, _ -> latestContent.copyOf(latestContent.size-1) }
 //    override fun getSequenceSquashHandler(): SequenceSquashHandler = { list -> list.flatMap { (it + byteArrayOf(13)).asIterable() }.toByteArray() }
     override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {list, b -> list.flatMap { (it + b).asIterable() }.toByteArray() }

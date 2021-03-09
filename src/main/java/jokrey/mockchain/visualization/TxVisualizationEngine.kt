@@ -87,7 +87,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
 
                             if (yCounter > gridHeight)
                                 gridHeight = yCounter
-                            gridWidth += levels.values.max()!!
+                            gridWidth += levels.values.max() ?: 0
                         } catch (ex: IllegalStateException) {
                             if(last) { //i.e. error occurred in mempool && i.e. error transaction in mempool
                                 gridWidth+=1
@@ -115,7 +115,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
                     }
                 }
 
-                TimeDiffMarker.println_setMark("untangling")
+                TimeDiffMarker.setMark("untangling")
                 //todo the following most basic attempt at untangling looks like it has a terrible algorithmic complexity( n^2 In the best case)
                 for(ao in allObjects) {
                     if(ao is TransactionDisplayObject) {

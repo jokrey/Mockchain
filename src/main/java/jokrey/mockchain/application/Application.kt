@@ -125,4 +125,9 @@ interface Application {
      * Todo - this has some SERIOUS requirements to the application - in case of a fork it needs to be able to VERY quickly accept changes.
      */
     fun cleanUpAfterForkInvalidatedThisState()
+
+    /**
+     * Gracefully close everything related
+     */
+    fun close() {}
 }

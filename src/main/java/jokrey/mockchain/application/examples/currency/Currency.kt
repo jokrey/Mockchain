@@ -1,6 +1,7 @@
 package jokrey.mockchain.application.examples.currency
 
 import jokrey.mockchain.Mockchain
+import jokrey.mockchain.application.Application
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*

@@ -34,12 +34,8 @@ val LOG = Logger.getLogger("Chain")
 class Chain(val app: Application,
             internal val instance: Mockchain,
             internal val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
-    val rwLock = ReentrantReadWriteLock()
-    private var priorSquashState: SquashAlgorithmState? = null
-    internal fun squashVerify(proposed: List<Transaction>, previousSquashState: SquashAlgorithmState? = priorSquashState): SquashAlgorithmState {
-        return jokrey.mockchain.squash.findChanges(this, app.getPartialReplaceSquashHandler(), app.getBuildUponSquashHandler(), app.getSequenceSquashHandler(),
-                previousSquashState, proposed.toTypedArray())
-    }
+    private val rwLock = ReentrantReadWriteLock()
+    internal var priorSquashState: SquashAlgorithmState? = null
 
     /**
      * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction.
@@ -81,74 +77,63 @@ class Chain(val app: Application,
             //persist transactions to chain (i.e. bundle and add as block[omitted dependenciesFrom prototype]):
             val (blockId, newBlock) = persist(store.highestBlockId() + 1, proposedTransactions, latestHash, relayBlock)
 
-            //commit changes generated during squash and addition of newest block (required to be done before app.newBlock, because that one is likely to query the store)
-            store.commit()
-
             instance.consensus.notifyNewLatestBlockPersisted(newBlock)
 
             return blockId
         }
     }
 
-    private var lastPersistedId: Int = -1
-    fun appendBlock(squash: Boolean, isFirst: Boolean, newSquashState: SquashAlgorithmState?, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>): Int {
+    fun appendForkBlock(forkStore: IsolatedStorage, squash: Boolean, forkSquashState: SquashAlgorithmState, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>) : Int =
         rwLock.write {
-//            if (getLatestHash() != relayBlock.previousBlockHash) NOT REQUIRED::: BECAUSE INSTANCE IS PAUSED HERE - ALSO NOT POSSIBLE SINCE getLatestHash operates on committed data, which we do not do here..
-//                throw RejectedExecutionException("latestHash != relayBlock.previousBlockHash")
             if (proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
-            if(squash)
-                TODO()
-//            app.newBlock(instance, relayBlock, proposed)
+            var latestHash = relayBlock.previousBlockHash
+            val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
 
-//            val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
-//
-//            val squashStateToIntroduce = newSquashState ?: priorSquashState
-//            priorSquashState = squashStateToIntroduce
-//            if (squash && squashStateToIntroduce != null) {
-//                //todo - squash reintroduction, the following code could be, but may not be right
-//
-////                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray())
-////                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
-////                //     solve: app is presented with the relay block
-////
-////                squashStateToIntroduce.reset()
-////                proposedTransactions.clear()
-////                proposedTransactions.addAll(newlyProposedTx)
-////                if (newLatestBlockHash != null)
-////                    latestHash = newLatestBlockHash
-//            }
+            if (squash) {
+                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! It is required?! AHHH")
 
-            if(newBlockId != lastPersistedId+1 && !isFirst)
-                return -1
-            lastPersistedId = newBlockId
+                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
+                    writeStore=forkStore)
+                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+                //     solve: app is presented with the relay block
 
-            val (blockId, _) = persist(newBlockId, proposed, relayBlock.previousBlockHash, relayBlock)
+                forkSquashState.reset()
+                proposedTransactions.clear()
+                proposedTransactions.addAll(newlyProposedTx)
+                if (newLatestBlockHash != null)
+                    latestHash = newLatestBlockHash
+            }
+
+            val (blockId, _) = persist(newBlockId, proposedTransactions, latestHash, relayBlock,
+                writeStore=forkStore)
             return blockId
         }
-    }
 
-    private fun persist(newBlockId : Int, txs: List<Transaction>, latestHash: Hash?, relayBlock: Block): Pair<Int, Block> {
+    private fun persist(newBlockId : Int, txs: List<Transaction>, latestHash: Hash?, relayBlock: Block,
+                        writeStore: WriteStorageModel = store): Pair<Int, Block> {
         AverageCallTimeMarker.mark_call_start("persist new block")
 
         val newlyAdded = LinkedList<TransactionHash>()
         for (tx in txs) {
             val txp = tx.hash
-
-            store.add(txp, tx.withBlockId(newBlockId))
+            writeStore.add(txp, tx.withBlockId(newBlockId))
             newlyAdded.add(txp)
         }
         val newBlock = Block(latestHash, relayBlock.proof, newlyAdded)
-        store.add(newBlock)
+        writeStore.add(newBlock)
+
+        writeStore.blockCommit()
         AverageCallTimeMarker.mark_call_end("persist new block")
         return Pair(newBlockId, newBlock)
     }
 
-    private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>): Pair<Hash?, Array<Transaction>> {
+    private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>,
+                                 writeStore: WriteStorageModel = store): Pair<Hash?, Array<Transaction>> {
         try {
             AverageCallTimeMarker.mark_call_start("introduceChanges")
-            instance.log("squashChanges = ${changes}")
-            val newLatestBlockHash = introduceSquashChangesToChain(changes)
+            instance.log("squashChanges = $changes")
+            val newLatestBlockHash = introduceSquashChangesToChain(changes, writeStore)
             return Pair(newLatestBlockHash, introduceSquashChangesToList(changes, proposed))
         } finally {
             AverageCallTimeMarker.mark_call_end("introduceChanges")
@@ -162,19 +147,20 @@ class Chain(val app: Application,
         override fun toString() = "VirtualBlockMutation[$deletions, $changes]"
     }
 
-    private fun introduceSquashChangesToChain(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>): Hash? {
+    private fun introduceSquashChangesToChain(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>,
+                                              writeStore: WriteStorageModel): Hash? {
         val mutatedBlocks = HashMap<Int, VirtualBlockMutation>()
 
         for (entry in squashChanges) {
             val (oldHash, change) = entry
-            val oldTX = store[oldHash]
-                    ?: continue// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
+            val oldTX =
+                writeStore[oldHash]// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
 
             val mutation = mutatedBlocks[oldTX.blockId] ?: VirtualBlockMutation()
 
             when (change) {
                 VirtualChange.Deletion -> {
-                    store.remove(oldHash)
+                    writeStore.remove(oldHash)
 
                     mutation.deletions.add(oldHash)
 
@@ -188,7 +174,7 @@ class Chain(val app: Application,
                     val newTX = oldTX.changeContentAndRemoveDependencies(change.newContent) //ignore bDependencies, squash removes all bDependencies
                     val newHash = newTX.hash
 
-                    store.replace(oldHash, newHash, newTX)
+                    writeStore.replace(oldHash, newHash, newTX)
 
                     mutation.changes.add(Pair(oldHash, newHash))
 
@@ -202,7 +188,7 @@ class Chain(val app: Application,
                     change as VirtualChange.DependencyAlteration
                     if (change.newDependencies != null) {
                         val dependencyChangedTx = oldTX.changeDependencies(change.newDependencies)
-                        store.replace(oldHash, dependencyChangedTx)
+                        writeStore.replace(oldHash, dependencyChangedTx)
                         //no callback to application, because no data has changed
                         //no change to blocks, because hash has not changed
                     }
@@ -218,7 +204,7 @@ class Chain(val app: Application,
 
         if (mutatedBlocks.isNotEmpty()) {
             var currentBlockId = mutatedBlocks.minBy { it.key }!!.key
-            val chainIterator = store.muteratorFrom(currentBlockId)
+            val chainIterator = writeStore.muteratorFrom(currentBlockId)
             var lastBlockHash: Hash? = null
             for (block in chainIterator) {
                 if (lastBlockHash == null)
@@ -283,17 +269,20 @@ class Chain(val app: Application,
      * For every block in the transaction the application's newBlock callback will be called.
      * Since the blocks are already stored, no verification is required.
      *
+     * blockLimit is the highest block that will still be added, if < 0 or omitted it will apply the entire chain
+     *
      * @param freshApp a freshly created application - an instance of the same type of the app that has initially been provided to the constructor of this class
      */
-    fun applyReplayTo(freshApp: Application, blockLimit: Int = -1) {
+    fun applyReplayTo(freshApp: Application, blockLimit: Int = -1): Application {
         rwLock.write {
             var counter = 0
             //Verify omitted for obvious reasons
             for (block in store) {
-                if(counter>=blockLimit && blockLimit>=0) break
+                if(blockLimit in 0 until counter) break
                 freshApp.newBlock(instance, block, block.map { this[it] })
                 counter++
             }
+            return freshApp
         }
     }
 
@@ -328,14 +317,17 @@ class Chain(val app: Application,
      * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will thrown an exepction
      */
     override operator fun get(hash: TransactionHash) = getUnsure(hash)!!
+////        rwLock.read {
+//            store[hash]
+////        }
 
     /**
      * Returns the transaction at the given hash from the Mempool or permanent memory - or null if the hash is not resolvable
      */
-    override fun getUnsure(hash: TransactionHash) = //Transaction?
-//        rwLock.read {
-            store[hash]
-//        }
+    override fun getUnsure(hash: TransactionHash) = store.getUnsure(hash)
+////        rwLock.read {
+//            store[hash]
+////        }
     /**
      * Returns true if the hash is known to the chain, false if it is not resolvable
      */
@@ -398,12 +390,8 @@ class Chain(val app: Application,
     fun getPersistedTransactions() = store.txIterator()
 
     /**
-     * Returns all transactions that either have a dependency or are depended upon by another transaction
-     */
-    fun getAllTransactionWithDependenciesOrThatAreDependedUpon(): Set<Transaction> = rwLock.read { store.getAllPersistedTransactionWithDependenciesOrThatAreDependedUpon() }
-
-    /**
      * Adds the current size of the permanent storage and the Mempool to roughly calculate the current size of the chain
      */
     fun calculateStorageRequirementsInBytes() = rwLock.read { store.byteSize() }
+    fun close() = rwLock.write { store.close() }
 }

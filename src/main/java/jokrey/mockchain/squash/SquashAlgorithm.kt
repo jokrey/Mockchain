@@ -69,9 +69,9 @@ class SquashRejectedException(why: String = "Squash has been rejected for a reas
  *
  * Denied transactions can be propagated to the application, changes either introduced or discarded to be re-found in the next consensus round.
  */
-fun findChangesAndDeniedTransactions(chain: Chain, partialReplaceCallback: PartialReplaceSquashHandler, buildUponCallback: BuildUponSquashHandler, sequenceCallback: SequenceSquashHandler,
+fun findChangesAndDeniedTransactions(storage: StorageModel, partialReplaceCallback: PartialReplaceSquashHandler, buildUponCallback: BuildUponSquashHandler, sequenceCallback: SequenceSquashHandler,
                                      subset: Array<Transaction>) : Pair<LinkedHashMap<TransactionHash, VirtualChange>, List<Pair<Transaction, RejectionReason.SQUASH_VERIFY>>> {
-    val state = findChanges(chain, partialReplaceCallback, buildUponCallback, sequenceCallback, null, subset)
+    val state = findChanges(storage, null, buildUponCallback, sequenceCallback, partialReplaceCallback, subset)
     return Pair(state.virtualChanges, state.rejections)
 }
 
@@ -89,16 +89,17 @@ fun findChangesAndDeniedTransactions(chain: Chain, partialReplaceCallback: Parti
  *     Every subsequent transaction that has a dependency on the rejected transaction will also be rejected.
  *
  */
-fun findChanges(chain: Chain,
-                partialReplaceCallback: PartialReplaceSquashHandler,
-                buildUponCallback: BuildUponSquashHandler,
-                sequenceCallback: SequenceSquashHandler,
-                priorState: SquashAlgorithmState?,
-                proposed: Array<Transaction>): SquashAlgorithmState {
-
+fun findChanges(
+    storage: WriteStorageModel,
+    priorState: SquashAlgorithmState?,
+    buildUponCallback: BuildUponSquashHandler,
+    sequenceCallback: SequenceSquashHandler,
+    partialReplaceCallback: PartialReplaceSquashHandler,
+    proposed: Array<Transaction>
+): SquashAlgorithmState {
     //important pre-condition ensured by selectStateAndSubset:
     // 1. Every tx of tx.bDependencies of every tx in 'selectStateAndSubset' is also in 'selectStateAndSubset'
-    val (state, selectedSubset) = selectStateAndSubset(chain, priorState, proposed)
+    val (state, selectedSubset) = selectStateAndSubset(storage, priorState, proposed)
 
     //important pre-conditions ensured by dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies:
     // 1. Every Transaction's dependencies are at a smaller index than the transaction itself + the entire dependency tree exists + acyclic
@@ -111,14 +112,14 @@ fun findChanges(chain: Chain,
     for(tx in sortedFilteredTxToConsider) {
         if(tx.bDependencies.isEmpty()) continue
 
-        val resolver = proposed.asTxResolver().combineWith(chain)
+        val resolver = proposed.asTxResolver().combineWith(storage)
         determineStateAlterationsFrom(tx, resolver, state, partialReplaceCallback, buildUponCallback, sequenceCallback)
     }
 
     return state
 }
 
-fun selectStateAndSubset(chain: Chain, priorState: SquashAlgorithmState?, proposed: Array<Transaction>):
+fun selectStateAndSubset(storage: WriteStorageModel, priorState: SquashAlgorithmState?, proposed: Array<Transaction>):
         Pair<SquashAlgorithmState, Iterable<Transaction>> {
 // return chain.getPersistedTransactions() + subset                                 // too slow
 // return completeDependencyList(chain, reverseDependencies, *subset).asIterable()  //this creates an issue:: The unfound dependency problem persists here
@@ -127,8 +128,8 @@ fun selectStateAndSubset(chain: Chain, priorState: SquashAlgorithmState?, propos
         //it is assumed here that either the chain was restarted or this is the first round
         return Pair(
                 SquashAlgorithmState(),
-                chain.getAllTransactionWithDependenciesOrThatAreDependedUpon() +
-                 proposed.asIterable()
+                storage.getAllPersistedTransactionsWithDependenciesOrThatAreDependedUpon() +
+                proposed.asIterable()
         )
     } else {
         Pair(SquashAlgorithmState(priorState), proposed.asIterable())

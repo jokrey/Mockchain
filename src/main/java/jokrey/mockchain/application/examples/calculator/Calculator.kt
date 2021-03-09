@@ -38,11 +38,15 @@ class SingleStringCalculator(verify:(Calculation) -> Boolean={true}) : MashedCal
         return super.shortDescriptor(tx).replace(" in 0", "")
     }
     override fun createTxFrom(input: String): Transaction = super.createTxFrom(if(!input.contains("in")) input + "in 0" else input)
+    override fun newEqualInstance() = SingleStringCalculator(verify)
+    override fun getEqualFreshCreator(): () -> VisualizableApp = { SingleStringCalculator(verify) }
 }
 class MultiStringCalculator(numberOfStrings:Int) : MashedCalculator(numberOfStrings, maxDependencies = 1) {
     override fun getCreatorParamNames() = arrayOf("number of initial states (int)")
     override fun getCurrentParamContentForEqualCreation() = arrayOf(numberOfInitialStates.toString())
     override fun createNewInstance(vararg params: String) = MultiStringCalculator(params[0].toInt())
+    override fun newEqualInstance() = MultiStringCalculator(numberOfInitialStates)
+    override fun getEqualFreshCreator(): () -> VisualizableApp = { MultiStringCalculator(numberOfInitialStates) }
 }
 
 open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(Calculation) -> Boolean={true}, private val maxDependencies: Int = 1) : VisualizableApp {
