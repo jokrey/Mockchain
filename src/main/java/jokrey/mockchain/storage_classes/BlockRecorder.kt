@@ -8,9 +8,6 @@ class BlockRecorder(val instance: Nockchain, var maxBlocksToStore:Int = 200) {
     private var latestBlockIdStored = -1
 
     fun applyRecordedBlocks() = synchronized(this) {
-        instance.log("instance.chain.getBlocks(${instance.chain.getBlocks().size}) = ${instance.chain.getBlocks().toList()}")
-        instance.log("store = ${store}")
-        instance.log("instance.chain.blockCount() = ${instance.chain.blockCount()}")
         try {
             for ((index, rb) in store.toSortedMap().entries) {
                 if (index >= instance.chain.blockCount()) {

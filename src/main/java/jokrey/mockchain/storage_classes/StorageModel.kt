@@ -184,13 +184,13 @@ class NonPersistentStorage : StorageModel {
         val nonPers = NonPersistentStorage()
         for(i in 0..forkIndex) {
             val blockAtI = committedBLOCKS[i]
-            nonPers.committedBLOCKS.add(blockAtI)
+            nonPers.uncommittedBLOCKS.add(blockAtI)
             for(txp in blockAtI) {
-                nonPers.committedTXS[txp] = committedTXS[txp]!!
+                nonPers.uncommittedTXS[txp] = committedTXS[txp]!!
             }
+            nonPers.blockCommit()
         }
         return object : IsolatedStorage {
-            //Todo untested.
             //gc will clean rest
             override fun cancel() {
                 nonPers.committedTXS.clear()
@@ -199,10 +199,10 @@ class NonPersistentStorage : StorageModel {
                 nonPers.uncommittedBLOCKS.clear()
             }
             override fun writeChangesToDB() {
-                uncommittedTXS.clear()
-                uncommittedBLOCKS.clear()
-                uncommittedTXS.putAll(nonPers.uncommittedTXS)
-                uncommittedBLOCKS.addAll(nonPers.uncommittedBLOCKS)
+                this@NonPersistentStorage.uncommittedTXS.clear()
+                this@NonPersistentStorage.uncommittedBLOCKS.clear()
+                this@NonPersistentStorage.uncommittedTXS.putAll(nonPers.uncommittedTXS)
+                this@NonPersistentStorage.uncommittedBLOCKS.addAll(nonPers.uncommittedBLOCKS)
                 this@NonPersistentStorage.blockCommit()
             }
 

@@ -75,11 +75,12 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
             return RejectionReason.APP_VERIFY("exception thrown - ${ex.message}")
         }
 
-        updateLastInStrings(tx)
         return null //accepted
     }
 
-    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
+    override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {
+        updateLastInStrings(tx)
+    }
 
 
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> {
@@ -121,7 +122,6 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
                         size--
                     }
                 }
-                println("lastTransactionsInString("+string+") = ${lastTransactionsInString(string)}")
             }
         }
         err.println("exhaustiveStateDescriptor() = ${exhaustiveStateDescriptor()}")
@@ -148,8 +148,8 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     }
 
     override fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean) {
-//        for(string in calcFromTx(oldTx).strings)
-//            lastTransactionsInString(string).remove(oldTx)
+        for(string in calcFromTx(oldTx).strings)
+            lastTransactionsInString(string).remove(oldTx)
     }
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         for(string in calcFromTx(oldTx).strings) {
@@ -160,9 +160,9 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
         }
     }
     override fun txRejected(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, reason: RejectionReason) {
-//        if(reason !is RejectionReason.PRE_MEM_POOL)
-//            for(string in calcFromTx(oldTx).strings)
-//                lastTransactionsInString(string).remove(oldTx)
+        if(reason !is RejectionReason.PRE_MEM_POOL)
+            for(string in calcFromTx(oldTx).strings)
+                lastTransactionsInString(string).remove(oldTx)
     }
 
 
@@ -178,7 +178,7 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
     private var lastTransactionsInStrings = HashMap<Int, MutableList<Transaction>>(numberOfInitialStates)
     private fun lastTransactionsInString(string: Int) = lastTransactionsInStrings.computeIfAbsent(string) {ArrayList()}
     fun getLastInString(string: Int): Transaction? = if(lastTransactionsInString(string).isEmpty()) null else lastTransactionsInString(string).last()
-    fun addLastInString(string: Int, new: Transaction) = lastTransactionsInString(string).add(new)
+    private fun addLastInString(string: Int, new: Transaction) = lastTransactionsInString(string).add(new)
     private fun updateLastInStrings(newTx: Transaction) {
         for (string in calcFromTx(newTx).strings)
             addLastInString(string, newTx)

@@ -331,7 +331,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                 remoteBlocksIndex -= receivedBlockHashes.size
                 val forkIndex = findForkIndex(instance.chain, ownBlockHeight, receivedBlockHashes.asReversed(), remoteBlocksIndex, remoteBlockHeight)
 
-                instance.log("forkIndex = ${forkIndex}")
+                instance.log("forkIndex = $forkIndex")
 
                 if(ownBlockHeight >= remoteBlockHeight) {
                     convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
@@ -409,6 +409,8 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                                     }
                                     forkStore.writeChangesToDB()
                                     instance.chain.priorSquashState = forkSquashState
+
+                                    instance.log("FORK DONE - new height: ${instance.chain.blockCount()}")
 
                                     return@pauseAndRecord
                                 }

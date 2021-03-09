@@ -49,6 +49,7 @@ class CalculatorTest {
 
         var definiteState:String? = null
         for(variation in variations) {
+            println("testing variation: $variation")
             val (performConsensusEvery, squashEveryNRounds) = variation
             val app = SingleStringCalculator()
             val instance = Mockchain(app, consensus = ManualConsensusAlgorithmCreator(squashEveryNRounds))
@@ -60,14 +61,16 @@ class CalculatorTest {
                     Transaction(calc.toTxContent())
                 else
                     Transaction(calc.toTxContent(), Dependency(last.hash, DependencyType.BUILDS_UPON), Dependency(last.hash, DependencyType.REPLACES))
-                app.addLastInString(calc.string, new)
                 println("calc = ${calc}")
                 instance.commitToMemPool(new)
 
-                if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mempool
+                if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mem pool
                     consensus.performConsensusRound(false)
             }
             consensus.performConsensusRound(false)
+
+            println("result = $result")
+            println("definiteState = $definiteState")
 
             if(definiteState==null)
                 definiteState = app.exhaustiveStateDescriptor()

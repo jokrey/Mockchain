@@ -174,6 +174,7 @@ class DistributedTests {
         instance1.commitToMemPool(tx4)
         (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
 
+        println("now connecting")
         instance1.connect(instance2.selfLink, catchup = false)
 
         instance1.commitToMemPool(tx5)

@@ -153,8 +153,8 @@ class Chain(val app: Application,
 
         for (entry in squashChanges) {
             val (oldHash, change) = entry
-            val oldTX =
-                writeStore[oldHash]// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
+            val oldTX = writeStore.getUnsure(oldHash)
+                ?: continue// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
 
             val mutation = mutatedBlocks[oldTX.blockId] ?: VirtualBlockMutation()
 
