@@ -1,4 +1,5 @@
 import jokrey.mockchain.Nockchain
+import jokrey.mockchain.application.ApplicationTestSuite
 import jokrey.mockchain.application.examples.calculator.*
 import jokrey.mockchain.consensus.ManualConsensusAlgorithm
 import jokrey.mockchain.consensus.ManualConsensusAlgorithmCreator
@@ -11,6 +12,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ForkTests {
+    @Test
+    fun testSuiteForkTest() {
+        ApplicationTestSuite().runForkAcceptabilityTest(SingleStringCalculator())
+    }
+
     @Test
     fun fork0TextPersisted() {
         forkTestWithoutSquash(persistentStorage = true, sameInitial = false)

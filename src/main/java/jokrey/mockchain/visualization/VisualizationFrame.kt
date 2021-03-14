@@ -30,12 +30,13 @@ fun main() {
  * @author jokrey
  */
 class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true) {
-    var app = instance.app as VisualizableApp
-    val engine: TxVisualizationEngine = TxVisualizationEngine(instance, app, app)
+    val engine: TxVisualizationEngine = TxVisualizationEngine(
+        instance, (instance.app as VisualizableApp), (instance.app as VisualizableApp)
+    )
     val pipe: AnimationPipeline
 
     init {
-        val frame = JFrame(app::class.java.simpleName)
+        val frame = JFrame(instance.app::class.java.simpleName)
 
         var ap: AnimationJPanel? = null
         pipe = object : AnimationPipeline(AnimationDrawerSwing()) {
@@ -71,7 +72,7 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
                 if (input == null)
                     throw NullPointerException()
                 else
-                    instance.commitToMemPool(app.createTxFrom(input))
+                    instance.commitToMemPool((instance.app as VisualizableApp).createTxFrom(input))
             } catch (e: Exception) {
                 e.printStackTrace()
                 JOptionPane.showMessageDialog(frame, "Error - could not generate transaction\n${e.message}")
@@ -80,12 +81,20 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
         val applicationChooserJB = JButton("switch App")
         applicationChooserJB.addActionListener {
             try {
-                buildNewInstanceConfiguration(app, instance.consensus.getCreator(), frame)
+                buildNewInstanceConfiguration(instance.app as VisualizableApp, instance.consensus.getCreator(), frame)
                 frame.dispose()
             } catch (e: CancellationException) {
             } catch (e: Exception) {
                 JOptionPane.showMessageDialog(frame, "Error, could not create app.\nCheck input parameters and try again.\nError:\n${e.message}", "Could not create app", JOptionPane.ERROR_MESSAGE)
             }
+        }
+        val resetAppApplyReplayJB = JButton("reset from chain")
+        resetAppApplyReplayJB.addActionListener {
+            instance.app = instance.chain.applyReplayTo(instance.app.newEqualInstance())
+
+            engine.recalculateTransactionDisplay()
+            if (pipe.userDrawBoundsMidOverride == null)
+                pipe.resetDrawBounds(engine)
         }
 
 
@@ -103,6 +112,7 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
         footerPanel.add(addTxJB)
         if(allowSwitchApp)
             footerPanel.add(applicationChooserJB)
+        footerPanel.add(resetAppApplyReplayJB)
         frame.add(footerPanel, BorderLayout.SOUTH)
 
         val headerPanel = JPanel(BorderLayout())
@@ -123,7 +133,7 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
         frame.isVisible = true
     }
 
-    private fun getAppInfoText() = "| app:{"+app.shortStateDescriptor()+"} |"
+    private fun getAppInfoText() = "| app:{"+(instance.app as VisualizableApp).shortStateDescriptor()+"} |"
     private fun getChainInfoText() = "| chain:{blocks(${instance.chain.blockCount()}), latestBlockHash(${instance.chain.getLatestHash()}), persistedTxNum(${instance.chain.persistedTxCount()})} |"
 
     fun recalculateDisplay() {
