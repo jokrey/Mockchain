@@ -21,13 +21,13 @@ open class Mockchain(app: Application,
                      store: StorageModel = NonPersistentStorage(),
                      consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
     var app = app
-        internal set(value) {
+        set(value) {
             val old = field
             field = value
             appListenable.notify(Pair(old, value))
         }
     internal val memPool = MemPool()
-    internal val chain = Chain(app, this, store)
+    val chain = Chain( this, store)
     val consensus =  consensus.create(this)
 
     val appListenable = Listenable<Pair<Application, Application>>()
@@ -73,6 +73,20 @@ open class Mockchain(app: Application,
         app.newTxInMemPool(this, tx)
     }
 
+    /** Resets the application state from the chain content */
+    fun resetFromChain() {
+        app = chain.applyReplayTo(app.newEqualInstance())
+    }
+    fun resetMemPool() {
+        memPool.clear()
+    }
+
+    fun addChainChangeListener(changeOccurredCallback: () -> Unit) {
+        chain.store.addCommittedChangeListener(changeOccurredCallback)
+    }
+    fun addMemPoolChangeListener(changeOccurredCallback: () -> Unit) {
+        memPool.addChangeListener(changeOccurredCallback)
+    }
 
 
     /** Returns true if the hash is known to this Mockchain node(i.e. in mempool or chain), false if it is not resolvable */
@@ -87,6 +101,9 @@ open class Mockchain(app: Application,
 
     /** Returns the current number of blocks stored in the chain */
     fun blockCount() = chain.blockCount()
+
+    /** Returns the current number of tx stored in the chain */
+    fun persistedTxCount() = chain.persistedTxCount()
 
     /** Returns the current number of txs in the mem pool */
     fun numInMemPool() = memPool.size()

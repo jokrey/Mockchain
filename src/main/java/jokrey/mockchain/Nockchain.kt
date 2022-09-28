@@ -7,6 +7,7 @@ import jokrey.mockchain.network.ChainNode
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.network.link2peer.P2LNode
 import jokrey.utilities.network.link2peer.P2Link
+import jokrey.utilities.network.link2peer.node.core.P2LConnection
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -41,7 +42,7 @@ class Nockchain : Mockchain {
     }
 
     val blockRecorder = BlockRecorder(this)
-    internal val node: ChainNode
+    val node: ChainNode
     val selfLink: P2Link
 
     fun connect(links: List<P2Link>, catchup: Boolean = false) {
@@ -124,4 +125,6 @@ class Nockchain : Mockchain {
         super.close()
         node.p2lNode.close()
     }
+
+    fun getActiveConnections(): Array<P2LConnection> = node.p2lNode.establishedConnections
 }
