@@ -115,7 +115,7 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
         frame.add(footerPanel, BorderLayout.SOUTH)
 
         val headerPanel = JPanel(BorderLayout())
-        val networkControlPanel = getAppropriateNetworkControlPanel(this, if(instance is Nockchain) instance.node else null)
+        val networkControlPanel = getAppropriateNetworkControlPanel(instance)
         if(networkControlPanel != null)
             headerPanel.add(networkControlPanel, BorderLayout.CENTER)
         val headerMinPanel = JPanel()

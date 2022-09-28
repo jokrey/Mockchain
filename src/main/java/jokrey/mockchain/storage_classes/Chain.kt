@@ -31,8 +31,7 @@ val LOG = Logger.getLogger("Chain")
  *    Both are verified in regards to the current state. Now one(remote) enters the squashAndAppendVerifiedNewBlock method its previous hash is verified to be equal to the real latest hash.
  *    It is persisted. Now the other(local) enters. The previous hash of that block is now different to the new latest hash and the block is rejected as a whole as 'out of chain order'.
  */
-class Chain(val app: Application,
-            internal val instance: Mockchain,
+class Chain(internal val instance: Mockchain,
             internal val store: StorageModel = NonPersistentStorage()) : TransactionResolver {  //: changing squashEveryNRounds at runtime MAY cause problems, however it is unlikely and the more I think about it, this may actually be fine NOT SURE YET - IT CAN CAUSE AN ISSUE THIS WAS FIXED WITH roundSinceLastSquash counter
     private val rwLock = ReentrantReadWriteLock()
     internal var priorSquashState: SquashAlgorithmState? = null
@@ -54,7 +53,7 @@ class Chain(val app: Application,
             if(proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
             //change app state based on added transactions
-            app.newBlock(instance, relayBlock, proposed)
+            instance.app.newBlock(instance, relayBlock, proposed)
 
             val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
 
@@ -90,20 +89,20 @@ class Chain(val app: Application,
             var latestHash = relayBlock.previousBlockHash
             val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
 
-            if (squash) {
-                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
-
-                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
-                    writeStore=forkStore)
-                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
-                //     solve: app is presented with the relay block
-
-                forkSquashState.reset()
-                proposedTransactions.clear()
-                proposedTransactions.addAll(newlyProposedTx)
-                if (newLatestBlockHash != null)
-                    latestHash = newLatestBlockHash
-            }
+//            if (squash) {
+//                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
+//
+//                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
+//                    writeStore=forkStore)
+//                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+//                //     solve: app is presented with the relay block
+//
+//                forkSquashState.reset()
+//                proposedTransactions.clear()
+//                proposedTransactions.addAll(newlyProposedTx)
+//                if (newLatestBlockHash != null)
+//                    latestHash = newLatestBlockHash
+//            }
 
             val (blockId, _) = persist(newBlockId, proposedTransactions, latestHash, relayBlock,
                 writeStore=forkStore)
@@ -165,7 +164,7 @@ class Chain(val app: Application,
                     mutation.deletions.add(oldHash)
 
                     try {
-                        app.txRemoved(instance, oldHash, oldTX, true)
+                        instance.app.txRemoved(instance, oldHash, oldTX, true)
                     } catch (t: Throwable) {
                         LOG.severe("App threw exception on txRemoved - which will be ignored")
                     }
@@ -179,7 +178,7 @@ class Chain(val app: Application,
                     mutation.changes.add(Pair(oldHash, newHash))
 
                     try {
-                        app.txAltered(instance, oldHash, oldTX, newHash, newTX, true)
+                        instance.app.txAltered(instance, oldHash, oldTX, newHash, newTX, true)
                     } catch (t: Throwable) {
                         LOG.severe("App threw exception on txAltered - which will be ignored")
                     }
@@ -241,14 +240,14 @@ class Chain(val app: Application,
 
             when (change) {
                 VirtualChange.Deletion -> {
-                    app.txRemoved(instance, proposedTx.hash, proposedTx, false)
+                    instance.app.txRemoved(instance, proposedTx.hash, proposedTx, false)
                     squashedTx.removeIf { it.hash == proposedTx.hash }
                 }
                 is VirtualChange.Alteration -> {
                     val newTx = Transaction(change.newContent)
                     squashedTx.removeIf { it.hash == proposedTx.hash }
                     squashedTx.add(newTx)
-                    app.txAltered(instance, proposedTx.hash, proposedTx, newTx.hash, newTx, false)
+                    instance.app.txAltered(instance, proposedTx.hash, proposedTx, newTx.hash, newTx, false)
                 }
                 is VirtualChange.DependencyAlteration, is VirtualChange.PartOfSequence -> {
                     change as VirtualChange.DependencyAlteration

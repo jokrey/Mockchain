@@ -70,6 +70,7 @@ interface BlockChainStorageIterator: Iterator<Block> {
     override fun hasNext(): Boolean
     override fun next(): Block
     fun set(element: Block)
+    fun setAndNext(element: Block)
 }
 
 /**
@@ -123,6 +124,10 @@ class NonPersistentStorage : StorageModel {
             override fun hasNext() = listIterator.hasNext()
             override fun next() = listIterator.next()
             override fun set(element: Block) = listIterator.set(element)
+            override fun setAndNext(element: Block) {
+                set(element)
+                next()
+            }
         }
     }
 
@@ -345,18 +350,26 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
         latestHash_uncommitted = block.getHeaderHash()
     }
     override fun muteratorFrom(index: Int): BlockChainStorageIterator {
-        var iterator = index-1
+        //println("muteratorFrom: index: $index, numberOfBlocks_uncommitted: $numberOfBlocks_uncommitted")
         return object : BlockChainStorageIterator {
-            override fun hasNext() = iterator < numberOfBlocks_uncommitted-1
+            var iterator = index
+            override fun hasNext() : Boolean {
+                //println("hasNext: iterator: $iterator, numberOfBlocks_uncommitted: $numberOfBlocks_uncommitted")
+                return iterator < numberOfBlocks_uncommitted
+            }
             override fun next(): Block {
-                iterator++
-                val blockRaw = levelDBStore[toBlockKey(iterator)]
-                return Block(blockRaw)
+                //println("next(iterator: ${iterator+1})")
+                return Block(levelDBStore[toBlockKey(iterator++)])
             }
             override fun set(element: Block) {
                 currentBatch.put(toBlockKey(iterator), element.encode())
                 if(iterator == numberOfBlocks_uncommitted-1)
                     latestHash_uncommitted = element.getHeaderHash() // this is ok, because unless the application crashes latestHash will become permanent here
+            }
+            override fun setAndNext(element: Block) {
+                //println("setAndNext(iterator: $iterator, block: $element)")
+                set(element)
+                iterator++
             }
         }
     }
@@ -417,33 +430,41 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
 
 
     override fun createIsolatedFrom(forkIndex: Int): IsolatedStorage {
+        // todo This is bad. Entire chain is put into non-pers, making it too large
         val nonPers = NonPersistentStorage()
         val iterator = muteratorFrom(0)
-        for(i in 0..forkIndex) {
+        for(i in 0 .. forkIndex) {
             val blockAtI = iterator.next()
-            nonPers.committedBLOCKS.add(blockAtI)
+            //println("initial-create blockAtI(i=$i): $blockAtI")
+            nonPers.uncommittedBLOCKS.add(blockAtI)
             for(txp in blockAtI) {
-                nonPers.committedTXS[txp] = get(txp)
+                nonPers.uncommittedTXS[txp] = get(txp)
             }
         }
+        nonPers.blockCommit()
         return object : IsolatedStorage {
-            //gc will clean rest
             override fun cancel() {
-                nonPers.committedTXS.clear()
-                nonPers.uncommittedTXS.clear()
-                nonPers.committedBLOCKS.clear()
-                nonPers.uncommittedBLOCKS.clear()
+                //gc will clean
             }
             override fun writeChangesToDB() {
-                val isolatedMuterator = nonPers.muteratorFrom(forkIndex + 1)
-                val muterator = this@PersistentStorage.muteratorFrom(forkIndex + 1)
+                //println("blocks before = ${iterator().asSequence().toList()}")
+                //println("forkIndex= $forkIndex")
+                val isolatedMuterator = nonPers.muteratorFrom(forkIndex+1)
+                val muterator = this@PersistentStorage.muteratorFrom(forkIndex+1)
+                //println("isolatedMuterator content = ${nonPers.muteratorFrom(0).asSequence().toList()}")
+                //println("isolatedMuterator.hasNext(): "+isolatedMuterator.hasNext())
                 while(isolatedMuterator.hasNext()) {
+                    //println("muterator.hasNext(): "+muterator.hasNext())
                     if(muterator.hasNext()) {
+//                        val previousBlock = muterator.get()
+//                        for(txp in previousBlock)
+//                            this@PersistentStorage.remove(txp)
                         val block = isolatedMuterator.next()
-                        muterator.set(block)
-                        for(txp in block) {
+//                        //println("block to be set after change - previous: $previousBlock")
+                        //println("block to be set after change: $block")
+                        muterator.setAndNext(block)
+                        for(txp in block)
                             this@PersistentStorage.add(txp, nonPers[txp])
-                        }
                         this@PersistentStorage.blockCommit()//prevents out of memory issues, but keeps acid for blocks
                     } else {
                         break
@@ -451,12 +472,14 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
                 }
                 while(isolatedMuterator.hasNext()) {
                     val block = isolatedMuterator.next()
+                    //println("block to be added after change: $block")
                     this@PersistentStorage.add(block)
                     for(txp in block) {
                         this@PersistentStorage.add(txp, nonPers[txp])
                     }
                     this@PersistentStorage.blockCommit()//prevents out of memory issues, but keeps acid for blocks
                 }
+                //println("blocks after = ${iterator().asSequence().toList()}")
             }
 
             override fun getAllPersistedTransactionsWithDependenciesOrThatAreDependedUpon() =

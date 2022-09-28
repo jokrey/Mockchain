@@ -1,5 +1,6 @@
 package jokrey.mockchain.visualization
 
+import jokrey.mockchain.Mockchain
 import jokrey.mockchain.Nockchain
 import jokrey.mockchain.network.ChainNode
 import jokrey.utilities.network.link2peer.P2Link
@@ -13,14 +14,14 @@ import javax.swing.*
  * @author jokrey
  */
 
-internal fun getAppropriateNetworkControlPanel(frame: VisualizationFrame, node: ChainNode?) :JPanel? {
-    if(node != null) {
-        return getNetworkControlPanel(frame, node)
+fun getAppropriateNetworkControlPanel(nockchain: Mockchain, showWhoAmILabel: Boolean = true) :JPanel? {
+    if(nockchain is Nockchain) {
+        return getNetworkControlPanel(nockchain, nockchain.node, showWhoAmILabel)
     }
     return null
 }
 
-private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): JPanel {
+private fun getNetworkControlPanel(nockchain: Nockchain, node: ChainNode, showWhoAmILabel: Boolean): JPanel {
     val whoAmILabel = JLabel(node.p2lNode.selfLink.toString())
 
     val disconnectAll = JButton("DisconnectFromAll")
@@ -47,7 +48,7 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
     }
 
     val connectToCallback = ActionListener {
-        (frame.instance as Nockchain).connect(P2Link.from(connectToInputField.text), catchup = true)
+        nockchain.connect(P2Link.from(connectToInputField.text), catchup = true)
         connectToInputField.text = ""
     }
     connectToButton.addActionListener(connectToCallback)
@@ -59,10 +60,11 @@ private fun getNetworkControlPanel(frame: VisualizationFrame, node: ChainNode): 
 
     val panel = JPanel()
     panel.layout = BoxLayout(panel, BoxLayout.X_AXIS)
-    panel.add(whoAmILabel)
-    panel.add(disconnectAll)
+    if(showWhoAmILabel)
+        panel.add(whoAmILabel)
     panel.add(connectToPanel)
     panel.add(showConnectionsButton)
+    panel.add(disconnectAll)
 
     return panel
 }

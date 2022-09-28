@@ -27,7 +27,7 @@ private const val CATCH_ME_UP_IF_YOU_CAN: Int = 9124
  *
  * Its usage is purely internal. Only connecting requires user input, please use the wrapper methods for that.
  */
-internal class ChainNode(internal val p2lNode: P2LNode, private val instance: Nockchain) {
+class ChainNode(val p2lNode: P2LNode, private val instance: Nockchain) {
     constructor(selfLink: P2Link, peerLimit:Int, instance: Nockchain) : this(P2LNode.create(selfLink, peerLimit), instance)
     private val pool = P2LThreadPool(32, 64)
 
@@ -169,8 +169,8 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
             val convo = p2lNode.convo(CATCH_ME_UP_IF_YOU_CAN, peer)
             val m0 = convo.initExpect(convo.encode(instance.chain.blockCount()))
             val result = m0.nextByte()
-            val remoteBlockHeight = m0.nextInt()
             if (result == WILL_PROVIDE_CATCH_UP) {
+                val remoteBlockHeight = m0.nextInt()
                 val m1 = convo.answerExpect(byteArrayOf(ACCEPT_FORK))
                 try {
                     acceptFork_Protocol(convo, remoteBlockHeight, m1)
@@ -179,6 +179,9 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                     //Print, but try next link
                     e.printStackTrace()
                 }
+            } else {
+                //can be DENY_CATCH_UP or ALREADY_SAME_HEIGHT
+                convo.close()
             }
         }
         return false
@@ -188,7 +191,9 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         instance.requireNonPaused {
             val remoteBlockHeight = m0.nextInt()
             val ownBlockHeight = instance.chain.blockCount()
-            if (instance.consensus.allowProvideCatchUpTo(convo.peer, ownBlockHeight, remoteBlockHeight)) {
+            if(ownBlockHeight == remoteBlockHeight) {
+                convo.answerClose(byteArrayOf(ALREADY_SAME_HEIGHT))
+            } else if (instance.consensus.allowProvideCatchUpTo(convo.peer, ownBlockHeight, remoteBlockHeight)) {
                 val result = convo.answerExpect(convo.encode(WILL_PROVIDE_CATCH_UP, ownBlockHeight)).nextByte()
                 if(result == ACCEPT_FORK)
                     provideFork_Protocol(convo, instance.chain.blockCount())
@@ -224,6 +229,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     val CONTINUE_ALL_AT_ONCE = 4.toByte()
     val WILL_PROVIDE_CATCH_UP = 5.toByte()
     val DENY_CATCH_UP = (-51).toByte()
+    val ALREADY_SAME_HEIGHT = (-52).toByte()
 
     private fun newBlockConversation_server_init(convo: P2LConversation, m0: P2LMessage) {
 //        convo.close()
@@ -270,8 +276,6 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
         var result = CONTINUE
         convo.setMaxAttempts(3)
         convo.setA(100)
-//        val encoded = block.encode()
-//        convo.initClose(encoded)
 
         val newBlockHeight = instance.chain.blockCount()
         val en_m0 = convo.encode(block.getHeaderHash().raw, block.previousBlockHash?.raw ?: byteArrayOf(), newBlockHeight)
@@ -318,6 +322,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
 
 
     private fun acceptFork_Protocol(convo: P2LConversation, remoteBlockHeight: Int, m1: P2LMessage) {
+        if(remoteBlockHeight == 0) return
         //after realising fork is required and remote chain is higher (preliminary accept based on incomplete data)
 
         instance.pauseAndRecord {//also has to pause the consensus algorithm
@@ -415,6 +420,11 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                                     forkStore.writeChangesToDB()
                                     instance.chain.priorSquashState = forkSquashState
 
+                                    //don't do the following, cannot do before, but this way it would be missing blocks
+//                                    instance.notifyNewRemoteBlockAdded(latestReceivedBlock)
+                                    //todo is this ok? Other node would attempt catch up if node is ahead
+                                    //relaying during fork is likely overkill
+                                    relayValidBlock(latestReceivedBlock, convo.peer)
                                     instance.log("FORK DONE - new height: ${instance.chain.blockCount()}")
 
                                     return@pauseAndRecord
@@ -430,7 +440,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
             }
 
             convo.answerClose(byteArrayOf(FORK_DENIED_BY_UNKNOWN))
-            throw IllegalStateException("should not occur, fork index invalid or not found or else")
+            throw IllegalStateException("should not occur, fork index invalid or not found or other chain empty or else")
         }
     }
 
