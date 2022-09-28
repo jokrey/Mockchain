@@ -43,7 +43,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(5, instance.chain.persistedTxCount()) //as with build upon they don't actually remove anything, but just cause a call to the application to alter the newer tx
     }
 
@@ -55,7 +55,7 @@ class GeneralTests {
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -70,7 +70,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(tx4.content, instance.chain.getPersistedTransactions().asSequence().toList().first().content)
     }
@@ -85,13 +85,13 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.persistedTxCount())
 
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -102,7 +102,7 @@ class GeneralTests {
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
@@ -112,28 +112,28 @@ class GeneralTests {
         instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON), Dependency(tx2.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON), Dependency(tx3.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         val previous = instance.chain.getLatestHash()
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
 
         assertNotEquals(previous, instance.chain.getLatestHash())
         assertTrue(instance.chain.validateHashChain())
@@ -145,28 +145,28 @@ class GeneralTests {
         instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON), Dependency(tx2.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.BUILDS_UPON), Dependency(tx3.hash, DependencyType.REPLACES)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         val previous = instance.chain.getLatestHash()
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
 
         assertNotEquals(previous, instance.chain.getLatestHash())
         assertTrue(instance.chain.validateHashChain())
@@ -179,7 +179,7 @@ class GeneralTests {
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
@@ -191,7 +191,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
@@ -206,7 +206,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx2.hash, DependencyType.REPLACES))) //a dependency on a dependency loop is rightfully denied
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertTrue(instance.chain.persistedTxCount() == 0)
     }
 
@@ -221,7 +221,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES), Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(tx0, instance.chain.getPersistedTransactions().asSequence().toList().first())
         assertEquals(1, instance.chain.persistedTxCount())
     }
@@ -235,7 +235,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
         assertTrue( tx1 == instance.chain.getPersistedTransactions().asSequence().toList().first() ||
                     tx2 == instance.chain.getPersistedTransactions().asSequence().toList().first())
@@ -262,11 +262,11 @@ class GeneralTests {
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.persistedTxCount())
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
     }
 
     @Test
@@ -283,11 +283,11 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.persistedTxCount())
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
     }
 
     @Test
@@ -298,12 +298,12 @@ class GeneralTests {
         instance.consensus as ManualConsensusAlgorithm
 
         instance.commitToMemPool(tx0)
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(1, instance.chain.persistedTxCount())
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.persistedTxCount())
     }
@@ -317,7 +317,7 @@ class GeneralTests {
         instance.commitToMemPool(tx1)
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART), Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(2, instance.chain.persistedTxCount())
     }
 
@@ -332,9 +332,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -348,12 +348,12 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         println("instance.chain.getPersistedTransactions().asSequence().toList().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList().toList()}")
 
         assertEquals(3, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         println("instance.chain.getPersistedTransactions().asSequence().toList().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList().toList()}")
         assertEquals(1, instance.chain.persistedTxCount())
     }
@@ -387,7 +387,7 @@ class GeneralTests {
 
             (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
             assertEquals(3, instance.chain.persistedTxCount())
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             assertEquals(3, instance.chain.persistedTxCount()) //squash does changes, as checked in the following, but it does not replace a tx
 //        assertEquals(123, instance.chain.getPersistedTransactions().asSequence().toList()[1].content[0])
 //        assertEquals(4, instance.chain.getPersistedTransactions().asSequence().toList()[0].content.size)
@@ -410,11 +410,11 @@ class GeneralTests {
             //tx1 becomes (123,2,3,4) - tx2 becomes (123,2,3,4,5)
             instance.commitToMemPool(Transaction(tx2.content, Dependency(willBeTx1.hash, DependencyType.BUILDS_UPON), Dependency(willBeTx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance.consensus.performConsensusRound(false)
             assertEquals(3, instance.chain.persistedTxCount())
             println("persisted prior to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("persisted prior to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             println("persisted AFTER to squash (hashes) : " + instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("persisted AFTER to squash : " + instance.chain.getPersistedTransactions().asSequence().toList())
             assertEquals(3, instance.chain.persistedTxCount()) //squash does changes, as checked in the following, but it does not replace a tx
@@ -443,9 +443,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() }}")
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() }}")
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
 
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() }}")
     }
@@ -468,7 +468,7 @@ class GeneralTests {
 
             (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
 //        assertEquals(2, instance.chain.persistedTxCount())
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             assertEquals(2, instance.chain.persistedTxCount())
         }
 
@@ -484,9 +484,9 @@ class GeneralTests {
             //tx1 becomes (1,2,3,4) WHICH IS WHAT TX0 IS - should fail
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance.consensus.performConsensusRound(false)
             assertEquals(2, instance.chain.persistedTxCount())
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             assertEquals(2, instance.chain.persistedTxCount())
         }
     }
@@ -501,9 +501,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES), Dependency(tx4.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx0.hash, DependencyType.REPLACES))) //valid, because tx2 should be rejected, because it's dependency tx4 does not exist
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.persistedTxCount())
     }
 
@@ -519,7 +519,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -543,9 +543,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))//because app does complete replace
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON), Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL)))//because app does complete replace
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(3, instance.chain.persistedTxCount())
         println("res = "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.content.toList() })
         assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,1,3,4))})//what tx0 becomes
@@ -563,9 +563,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -577,12 +577,12 @@ class GeneralTests {
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.BUILDS_UPON)))
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)//otherwise order is undefined and tx3 might be evaluated before tx2
+        instance.consensus.performConsensusRound(false)//otherwise order is undefined and tx3 might be evaluated before tx2
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.persistedTxCount())
     }
 
@@ -595,15 +595,15 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx4.hash, DependencyType.SEQUENCE_END)))
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true) //here for the next line to work tx1's dependency will need to be automatically altered so it points to the new tx0 hash
+        instance.consensus.performConsensusRound(true) //here for the next line to work tx1's dependency will need to be automatically altered so it points to the new tx0 hash
 
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(3, instance.chain.persistedTxCount())
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash }}")
         println("instance.chain.getPersistedTransactions().asSequence().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList()}")
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         println("instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash } = ${instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash }}")
         println("instance.chain.getPersistedTransactions().asSequence().toList() = ${instance.chain.getPersistedTransactions().asSequence().toList()}")
         assertEquals(1, instance.chain.persistedTxCount())
@@ -620,9 +620,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON)))
 
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(4, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(2, instance.chain.persistedTxCount())
     }
 
@@ -638,9 +638,9 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx4.content, Dependency(tx3.hash, DependencyType.SEQUENCE_END)))
 
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
         assertEquals(5, instance.chain.persistedTxCount())
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+        instance.consensus.performConsensusRound(true)
         assertEquals(1, instance.chain.persistedTxCount())
     }
 
@@ -689,7 +689,7 @@ class GeneralTests {
         assertEquals(1, denied.size)
         assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)), denied[0].first)
 
-        val state = jokrey.mockchain.squash.findChanges(
+        val (state, _) = jokrey.mockchain.squash.findChanges(
             instance.chain.store,
             null,
             app.getBuildUponSquashHandler(),
@@ -720,7 +720,7 @@ class GeneralTests {
             assertEquals(1, denied.size)
             assertEquals(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)), denied[0].first)
 
-            val state = jokrey.mockchain.squash.findChanges(
+            val (state, _) = jokrey.mockchain.squash.findChanges(
                 instance.chain.store,
                 null,
                 app.getBuildUponSquashHandler(),
@@ -745,13 +745,13 @@ class GeneralTests {
 
             instance.commitToMemPool(tx0)
             instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
             assertEquals(2, instance.chain.persistedTxCount())
 
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.SEQUENCE_END)))
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
             assertEquals(2, instance.chain.persistedTxCount()) //still correct, but now tx1(A PERSISTED TX) has a missing dependency
 
@@ -816,10 +816,10 @@ class GeneralTests {
             (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
             instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES), Dependency(tx0.hash, DependencyType.BUILDS_UPON))) //build upon lets tx1 change to tx0 content - but has previously replaced tx
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             //logically the dependencies here are to tx1, but tx1 has since changed to tx0 - within the squash algorithm this is handled, but here we are the application and have to handle that ourselves
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL), Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
             println("mem: "+instance.memPool.getTransactionHashes())
 
@@ -859,7 +859,7 @@ class GeneralTests {
 
         println("mem: "+instance.memPool.getTransactionHashes())
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList().toList()[0].content)
@@ -890,7 +890,7 @@ class GeneralTests {
 
         println("mem: "+instance.memPool.getTransactionHashes())
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance.consensus.performConsensusRound(false)
 
         assertEquals(1, instance.chain.persistedTxCount())
         assertArrayEquals(byteArrayOf(1,2,3,4), instance.chain.getPersistedTransactions().asSequence().toList()[0].content)
@@ -923,7 +923,7 @@ class GeneralTests {
 
             println("mem: "+instance.memPool.getTransactionHashes())
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
             println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
             println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList())
 

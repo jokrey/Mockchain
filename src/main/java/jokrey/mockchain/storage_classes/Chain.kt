@@ -91,7 +91,7 @@ class Chain(val app: Application,
             val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
 
             if (squash) {
-                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! It is required?! AHHH")
+                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
 
                 val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
                     writeStore=forkStore)

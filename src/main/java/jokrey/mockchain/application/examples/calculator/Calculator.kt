@@ -211,13 +211,18 @@ open class MashedCalculator(internal val numberOfInitialStates:Int, val verify:(
 //                }
             }
         }
+        updateLastInStrings(newTx)
         return Optional.of(newTx)
     }
 
     private fun getDependenciesForStrings(dependencyStrings: IntArray): Array<out Dependency> {
         val dependencyTransactions = Array(dependencyStrings.size) { getLastInString(dependencyStrings[it]) }.filterNotNull().distinct()
         return when {
-            maxDependencies == 1 -> dependenciesFrom(dependencyTransactions[0], DependencyType.BUILDS_UPON, DependencyType.REPLACES)
+            maxDependencies == 1 -> {
+                println("dependencyTransactions: $dependencyTransactions")
+                println("dependencyTransactions.javaClass: ${dependencyTransactions.javaClass}")
+                dependenciesFrom(dependencyTransactions[0], DependencyType.BUILDS_UPON, DependencyType.REPLACES)
+            }
             dependencyTransactions.size == 1 ->
                 //ATTENTION::: Replace here will not work. Because in fact not always everything can and has to be replaced.
                 //               with replace there is NO callback

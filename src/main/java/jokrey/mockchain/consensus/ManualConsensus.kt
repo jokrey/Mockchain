@@ -21,12 +21,12 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
     /**
      * Manual command to initiate proposing a new block.
      */
-    fun performConsensusRound(requestSquash: Boolean) {
+    fun performConsensusRound(requestSquashManually: Boolean) {
         if(isPaused) return
 
-        val requestSquash = requestSquash || (squashEveryNRounds>0 && roundCounter % squashEveryNRounds == 0)
-        val proposedTransactions = instance.memPool.getTransactions().toMutableList()
-        attemptCreateAndAddLocalBlock(proposedTransactions, Proof(byteArrayOf(if(requestSquash) 1 else 0)), requestSquash = requestSquash)
+        val requestSquash = requestSquashManually || (squashEveryNRounds>0 && roundCounter % squashEveryNRounds == 0)
+        val memPoolTransactions = instance.memPool.getTransactions().toList()
+        attemptCreateAndAddLocalBlock(memPoolTransactions, Proof(byteArrayOf(if(requestSquash) 1 else 0)), requestSquash = requestSquash)
         roundCounter++
     }
 

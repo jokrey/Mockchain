@@ -32,16 +32,15 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
                                       proof: Proof,
                                       latestHash: Hash? = instance.chain.getLatestHash(),
                                       requestSquash: Boolean = false) {
-        val selected = selectedTransactions.toMutableList()
-        val newSquashState = removeAllRejectedTransactionsFrom(
+        val (newSquashState, verifiedSortedTransactions) = removeAllRejectedTransactionsFrom(
             blockCreatorIdentity = getLocalIdentity(),
-            proposed = selected
+            proposedTransactions = selectedTransactions
         )
-        createAndAddLocalBlock(newSquashState, selected, latestHash, proof, requestSquash)
+        createAndAddLocalBlock(newSquashState, verifiedSortedTransactions, latestHash, proof, requestSquash)
     }
 
     /**
-     * Will persist the given transactions to the chain. They have to be locally guaranteed to be valid and legal.
+     * Will persist the given transactions to the chain. They have to be locally guaranteed to be valid+legal+sorted.
      * The given squash state has to be valid for reintroduction as well, preferably it was created using removeAllRejectedTransactionsFrom.
      * Once the transactions are persisted to the chain they will be removed from the mem pool automatically.
      * @see removeAllRejectedTransactionsFrom
@@ -73,16 +72,16 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedBlock.proof)
 
-        val proposedTransactions = receivedBlock.map { resolver[it] }.toMutableList()
-        val newSquashState = removeAllRejectedTransactionsFrom(
+        val proposedTransactions = receivedBlock.map { resolver[it] }
+        val (newSquashState, verifiedSortedTransactions) = removeAllRejectedTransactionsFrom(
             blockCreatorIdentity = blockCreatorIdentity,
-            proposed = proposedTransactions
+            proposedTransactions = proposedTransactions
         )
 
-        if(proposedTransactions.size != receivedBlock.size) //if even a single transaction was rejected
+        if(verifiedSortedTransactions.size != receivedBlock.size) //if even a single transaction was rejected
             return -1
 
-        return instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, proposedTransactions)
+        return instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, verifiedSortedTransactions)
     }
 
 
@@ -92,8 +91,8 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         val requestSquash = extractRequestSquashFromProof(receivedForkBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedForkBlock.proof)
 
-        val proposedTransactions = receivedForkBlock.map { resolver[it] }.toMutableList()
-        val newSquashState = removeAllRejectedTransactionsFrom(
+        val proposedTransactions = receivedForkBlock.map { resolver[it] }
+        val (newSquashState, verifiedSortedTransactions) = removeAllRejectedTransactionsFrom(
             forkApplication,
             blockCreatorIdentity,
             forkStore,
@@ -102,10 +101,10 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
             previousSquashStateOverride = forkSquashState
         )
 
-        if(proposedTransactions.size != receivedForkBlock.size) //if even a single transaction was rejected
+        if(verifiedSortedTransactions.size != receivedForkBlock.size) //if even a single transaction was rejected
             return Pair(null, -1)
 
-        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, requestSquash, newSquashState, receivedBlockId, receivedForkBlock, proposedTransactions))
+        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, requestSquash, newSquashState, receivedBlockId, receivedForkBlock, verifiedSortedTransactions))
     }
 
 
@@ -130,17 +129,22 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
 
 
     //i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
+    /**
+     * Returns new SquashAlgorithmState and sorted+verified proposed txs
+     *     (must be sorted, because input is mem pool and mem pool is chaos)
+     */
     protected fun removeAllRejectedTransactionsFrom(
         app: Application = instance.app, blockCreatorIdentity: ByteArray,
-        storage: WriteStorageModel = instance.chain.store, proposed: MutableList<Transaction>,
+        storage: WriteStorageModel = instance.chain.store, proposedTransactions: List<Transaction>,
         overridePreviousSquashState: Boolean = false, previousSquashStateOverride: SquashAlgorithmState? = null
-    ) : SquashAlgorithmState {
+    ) : Pair<SquashAlgorithmState, List<Transaction>> {
         var newSquashState: SquashAlgorithmState? = null
+        var proposed = proposedTransactions.toMutableList()
         do {
             var rejectedTxCount = 0
             AverageCallTimeMarker.mark_call_start("app verify")
             //todo - in most cases single verify is called twice. This is not cool.
-            val appRejectedTransactionsSingleVerify = proposed.mapNotNull { Pair(it, app.preMemPoolVerify(instance, it)?: return@mapNotNull null) }
+            val appRejectedTransactionsSingleVerify = proposed.mapNotNull { Pair(it, instance.verifyMemPool(it, storage)?: return@mapNotNull null) }
             val appRejectedTransactionsBlockVerify = app.blockVerify(instance, blockCreatorIdentity, *proposed.toTypedArray())
             val appRejectedTransactions = appRejectedTransactionsSingleVerify + appRejectedTransactionsBlockVerify
             handleRejection(proposed, appRejectedTransactions)
@@ -152,7 +156,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
                 break // if app does not reject anything after a squash run, then squash is not required to be run again - because nothing changed
 
             AverageCallTimeMarker.mark_call_start("squash verify")
-            newSquashState = jokrey.mockchain.squash.findChanges(
+            val changes = jokrey.mockchain.squash.findChanges(
                     storage,
                     if(overridePreviousSquashState) previousSquashStateOverride else instance.chain.priorSquashState,
                     app.getBuildUponSquashHandler(),
@@ -160,13 +164,15 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
                     app.getPartialReplaceSquashHandler(),
                     proposed.toTypedArray()
                 )
+            newSquashState = changes.first
+
             handleRejection(proposed, newSquashState.rejections)
-            proposed.removeAll(newSquashState.rejections.map { it.first })
             rejectedTxCount += newSquashState.rejections.size
             AverageCallTimeMarker.mark_call_end("squash verify")
+            proposed = changes.second.toMutableList()
         } while(proposed.isNotEmpty() && rejectedTxCount > 0)
 
-        return newSquashState!!
+        return Pair(newSquashState!!, proposed)
     }
 
 

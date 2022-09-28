@@ -61,25 +61,25 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
     private fun proposeBlock() {
         if(isPaused || stopped) return
 
-        val selectedTxs = instance.memPool.getTransactions().toMutableList()
+        val selectedTxs = instance.memPool.getTransactions().toList()
         if(selectedTxs.isEmpty()) return //todo - should this be done differently? - this leads to multiple parties instantly proposing when the new tx is finally available to the mem pool
 
-        val newSquashState = removeAllRejectedTransactionsFrom(
+        val (newSquashState, selectedSortedTransactions) = removeAllRejectedTransactionsFrom(
             blockCreatorIdentity = ownKeyPair.public.encoded,
-            proposed = selectedTxs
+            proposedTransactions = selectedTxs
         ) //VERY IMPORTANT LINE
-        val merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
+        val merkleRootOfSelectedTxs = MerkleTree(*selectedSortedTransactions.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 
         val proofData = byteArrayOf(0) + ownKeyPair.public.encoded
         val signature = RSAAuthHelper.sign(calculateMessageToSign(latestHash, merkleRootOfSelectedTxs, proofData), ownKeyPair.private)
         val proof = Proof(proofData + signature)
 
-        createAndAddLocalBlock(newSquashState, selectedTxs, latestHash, proof, requestSquash = false, merkleRoot = merkleRootOfSelectedTxs)
+        createAndAddLocalBlock(newSquashState, selectedSortedTransactions, latestHash, proof, requestSquash = false, merkleRoot = merkleRootOfSelectedTxs)
     }
 
     private fun calculateMessageToSign(previousBlockHash: Hash?, merkleRoot: Hash, proofData: ByteArray): ByteArray {
-        return previousBlockHash?.raw ?: byteArrayOf() + merkleRoot.raw + proofData
+        return previousBlockHash?.raw ?: (byteArrayOf() + merkleRoot.raw + proofData)
     }
 
     override fun notifyNewLatestBlockPersisted(newBlock: Block) {

@@ -55,10 +55,12 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
         lock.withLock {
             latestBlockHash = instance.chain.getLatestHash()
             selectedTxs = selectTransactions()
-            newSquashStateInCaseOfApproval = removeAllRejectedTransactionsFrom(
+            val changes = removeAllRejectedTransactionsFrom(
                 blockCreatorIdentity = minerIdentity,
-                proposed = selectedTxs as MutableList<Transaction>
+                proposedTransactions = selectedTxs
             ) //VERY IMPORTANT LINE
+            newSquashStateInCaseOfApproval = changes.first
+            selectedTxs = changes.second
             merkleRootOfSelectedTxs = MerkleTree(*selectedTxs.map { it.hash }.toTypedArray()).getRoot()
             currentNonce = 0
 

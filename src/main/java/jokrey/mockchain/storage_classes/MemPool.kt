@@ -1,5 +1,6 @@
 package jokrey.mockchain.storage_classes
 
+import jokrey.mockchain.squash.dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies
 import java.util.*
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.collections.LinkedHashMap
@@ -36,6 +37,7 @@ class MemPool : TransactionResolver {
     override operator fun contains(hash: TransactionHash) = rwLock.read { data.containsKey(hash) }
     fun isNotEmpty() = rwLock.read { data.isNotEmpty() }
     fun isEmpty() = rwLock.read { data.isEmpty() }
+    fun size() = rwLock.read { data.size }
 
     fun getTransactions() = rwLock.read { data.values.toTypedArray() }
     fun getTransactionHashes() = rwLock.read { data.keys.toTypedArray() }

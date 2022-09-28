@@ -108,6 +108,8 @@ class Nockchain : Mockchain {
         try {
             action()
         } finally {
+            //todo this is a problem
+            //applyRecordedBlocks can call this again, which causes overly long loops which do nothing good...
             blockRecorder.applyRecordedBlocks()
 
             consensus.resume()

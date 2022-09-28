@@ -22,17 +22,33 @@ open class Mockchain(app: Application,
                      consensus: ConsensusAlgorithmCreator = ManualConsensusAlgorithmCreator()) : AutoCloseable, TransactionResolver {
     var app = app
         internal set(value) {
+            val old = field
             field = value
-            appListenable.notify(value)
+            appListenable.notify(Pair(old, value))
         }
     internal val memPool = MemPool()
     internal val chain = Chain(app, this, store)
     val consensus =  consensus.create(this)
 
-    val appListenable = Listenable<Application>()
+    val appListenable = Listenable<Pair<Application, Application>>()
 
     init {
         this.consensus.runConsensusLoopInNewThread() //todo - there is an inherent potential race condition here.. If the algorithm instantly produces a new block, then node in the subclass nockchain is not initialized yet.
+    }
+
+    fun verifyMemPool(tx: Transaction, storage: TransactionResolver): RejectionReason? {
+        if (tx.hash in storage) {
+            // - this 'fix' does not work in a distributed environment, it does! txs are guaranteed to be equal, memPool should also be synchronized
+            app.txRejected(
+                this,
+                tx.hash,
+                tx,
+                RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field")
+            )
+            return RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field")
+        }
+
+        return app.preMemPoolVerify(this, tx)
     }
 
     /**
@@ -42,23 +58,19 @@ open class Mockchain(app: Application,
      * The given transaction has to have an unset blockId, i.e. one that is smaller than 0. Otherwise the chain could not override that field.
      */
     open fun commitToMemPool(tx: Transaction, local: Boolean = true) {
-        if(tx.hash in chain || tx.hash in memPool) {
-            // - this 'fix' does not work in a distributed environment, it does! txs are guaranteed to be equal, memPool should also be synchronized
-            app.txRejected(this, tx.hash, tx, RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field"))
-            throw IllegalArgumentException("hash(${tx.hash} already known to the chain - try adding a timestamp field")
+        if (tx.blockId >= 0) throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty - app dev error")
+        val rejected = if(tx.hash in memPool)
+                RejectionReason.PRE_MEM_POOL("hash(${tx.hash} already known to the chain - try adding a timestamp field")
+            else
+                verifyMemPool(tx, chain)
+        if(rejected != null) {
+            app.txRejected(this, tx.hash, tx, rejected)
+            throw IllegalArgumentException(rejected.description)
         }
-        if(tx.blockId >= 0) throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty - dev error")
 
-        val rejectionDescription = app.preMemPoolVerify(this, tx)
-        if(rejectionDescription != null) {
-            app.txRejected(this, tx.hash, tx, rejectionDescription)
-            throw IllegalArgumentException("App mem pool verify rejected: $rejectionDescription")
-        } else {
-            memPool[tx.hash] = tx
-//                log((if(local) "local " else "foreign ") +"tx committed to mem pool = $tx")
-            consensus.notifyNewTransactionInMemPool(tx)
-            app.newTxInMemPool(this, tx)
-        }
+        memPool[tx.hash] = tx
+        consensus.notifyNewTransactionInMemPool(tx)
+        app.newTxInMemPool(this, tx)
     }
 
 
@@ -69,6 +81,15 @@ open class Mockchain(app: Application,
     override operator fun get(hash: TransactionHash) = memPool.getUnsure(hash)?: chain[hash]
     /** Returns the tx if it is in either mem pool or chain, returns null otherwise */
     override fun getUnsure(hash: TransactionHash) = memPool.getUnsure(hash)?: chain.getUnsure(hash)
+
+    /** Returns the block with the given id, should it exist in the chain */
+    fun queryBlock(id: Int) = chain.queryBlock(id)
+
+    /** Returns the current number of blocks stored in the chain */
+    fun blockCount() = chain.blockCount()
+
+    /** Returns the current number of txs in the mem pool */
+    fun numInMemPool() = memPool.size()
 
     /**
      * Adds the current size of the permanent storage and the Mempool to roughly calculate the current size of the chain
@@ -89,11 +110,13 @@ open class Mockchain(app: Application,
         err.println(s)
     }
 
+    var isClosed = false
+        private set
     override fun close() {
+        isClosed = true
         consensus.stop()
         chain.close()
         app.close()
-//        throw IllegalAccessError("cannot close a blockchain... But note that if you don't you (might) get a memory leak.")
     }
 }
 

@@ -128,7 +128,7 @@ class NonPersistentStorage : StorageModel {
 
     override fun add(key: TransactionHash, value: Transaction) {
         if(value.blockId < 0) throw IllegalStateException("attempt to persist tx with illegal block id")
-        if(key in uncommittedTXS && uncommittedTXS[key]!!.blockId != value.blockId ) throw IllegalStateException("hash known")
+        if(key in uncommittedTXS && uncommittedTXS[key]!!.blockId != value.blockId ) throw IllegalStateException("hash($key) known")
         uncommittedTXS[key] = value
     }
     override fun replace(oldKey: TransactionHash, newKey: TransactionHash, newValue: Transaction) {

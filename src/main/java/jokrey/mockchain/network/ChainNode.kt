@@ -69,6 +69,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
     }
 
     internal fun relayValidBlock(block: Block, exception: InetSocketAddress? = null) {
+        instance.log("relayValidBlock, block: $block")
         pool.executeThreadedSuccessCounter(p2lNode.establishedConnections.map { peer ->
             P2LThreadPool.Task {
                 val to = peer.address
@@ -331,28 +332,32 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                 remoteBlocksIndex -= receivedBlockHashes.size
                 val forkIndex = findForkIndex(instance.chain, ownBlockHeight, receivedBlockHashes.asReversed(), remoteBlocksIndex, remoteBlockHeight)
 
-                instance.log("forkIndex = $forkIndex")
+//                instance.log("forkIndex = $forkIndex")
 
                 if(ownBlockHeight >= remoteBlockHeight) {
                     convo.answerClose(byteArrayOf(DENIED_YOU_ARE_BEHIND))
                     throw IllegalStateException("consensus denied fork or ownHeightChanged since last check (concurrent fork detected and denied) (ownHeight=$ownBlockHeight, remoteHeight=$remoteBlockHeight)")
                 }
+//                instance.log("acceptFork 1")
 
                 if (forkIndex < 0 && remoteBlocksIndex != 0) {
                     hashChainQueryAnswerResult = convo.answerExpect(byteArrayOf(FORK_CONTINUE))
                 } else {
+//                    instance.log("acceptFork 2")
                     //forkIndex can be -1 here, which is fine if the chains are completely different
                     //-  secondary check based on validated data
                     if (!instance.consensus.allowFork(forkIndex, ownBlockHeight, remoteBlockHeight)) {
                         convo.answerClose(byteArrayOf(FORK_DENIED_BY_CONSENSUS))
                         throw IllegalStateException("consensus denied fork or ownHeightChanged since last check (concurrent fork detected and denied) (ownHeight=$ownBlockHeight, remoteHeight=$remoteBlockHeight)")
                     } else {
+//                        instance.log("acceptFork 3")
                         //begin transfer of actual blocks, incrementally validate and query missing txs
                         var blockQueryResult = convo.answerExpectData(convo.encode(FORK_FOUND, forkIndex))
+//                        instance.log("acceptFork 4")
                         convo.pause()
 
-                        println("forkIndex+1 = ${forkIndex + 1}")
-                        println("ownBlockHeight = $ownBlockHeight")
+                        instance.log("forkIndex+1 = ${forkIndex + 1}")
+                        instance.log("ownBlockHeight = $ownBlockHeight")
                         val forkStore = instance.chain.store.createIsolatedFrom(forkIndex)
                         val forkApp = when {
                             forkIndex+1 == ownBlockHeight -> instance.app
@@ -436,10 +441,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
             val maxHashesTransferablePerPackage = convo.maxPayloadSizePerPackage / Hash.length()
             val hashesToTransferInThisPackage = min(hashChainDownCounter, maxHashesTransferablePerPackage)
             val encoder = MessageEncoder(convo.headerSize, convo.maxPayloadSizePerPackage)
-//            println("maxHashesTransferablePerPackage = ${maxHashesTransferablePerPackage}")
-//            println("hashesToTransferInThisPackage = ${hashesToTransferInThisPackage}")
             for (i in 1..hashesToTransferInThisPackage) {
-//                println("hashChainDownCounter = ${hashChainDownCounter}")
                 hashChainDownCounter--
                 val blockHash = instance.chain.queryBlockHash(hashChainDownCounter)
                 encoder.encodeFixed(blockHash.raw)
@@ -453,12 +455,19 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
             } else if(result == FORK_FOUND) {
                 val forkIndex = resultMsg.nextInt()
 
+                instance.log("provideFork - forkIndex: $forkIndex")
+                instance.log("provideFork - blockCountUpTop: $blockCountUpTop")
+
                 //start sending blocks from fork index until start block count (do not send too many blocks, they will have likely been recorded by the forked remote and would cause issues
                 for(i in forkIndex+1 until blockCountUpTop) {
                     val blockAtI = instance.chain.queryBlock(i)
+                    instance.log("sending block at: $i")
                     result = convo.answerExpectAfterPause(blockAtI.encode(), 10_000).nextByte() //todo is the block always short enough to properly send like this? BLOCK MAXIMUM
-                    if(result == FORK_NEXT_BLOCK_PLEASE) continue
-                    else if(result == FORK_COMPLETE_THANKS) {
+                    if (result == FORK_NEXT_BLOCK_PLEASE) {
+                        instance.log("result == FORK_NEXT_BLOCK_PLEASE")
+                        continue
+                    } else if(result == FORK_COMPLETE_THANKS) {
+                        instance.log("result == FORK_COMPLETE_THANKS")
                         if(i == blockCountUpTop-1) {
                             convo.close() //all good
                             return
@@ -468,6 +477,7 @@ internal class ChainNode(internal val p2lNode: P2LNode, private val instance: No
                             return
                         }
                     } else {
+                        instance.log("result == unexpected: $result")
                         convo.close()
                         handleBlockRelayError(result)
                         return

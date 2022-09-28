@@ -7,6 +7,7 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import kotlin.collections.LinkedHashMap
+import kotlin.math.max
 
 val LOG = Logger.getLogger("SquashAlgorithm")
 
@@ -71,7 +72,7 @@ class SquashRejectedException(why: String = "Squash has been rejected for a reas
  */
 fun findChangesAndDeniedTransactions(storage: StorageModel, partialReplaceCallback: PartialReplaceSquashHandler, buildUponCallback: BuildUponSquashHandler, sequenceCallback: SequenceSquashHandler,
                                      subset: Array<Transaction>) : Pair<LinkedHashMap<TransactionHash, VirtualChange>, List<Pair<Transaction, RejectionReason.SQUASH_VERIFY>>> {
-    val state = findChanges(storage, null, buildUponCallback, sequenceCallback, partialReplaceCallback, subset)
+    val (state, _) = findChanges(storage, null, buildUponCallback, sequenceCallback, partialReplaceCallback, subset)
     return Pair(state.virtualChanges, state.rejections)
 }
 
@@ -96,7 +97,7 @@ fun findChanges(
     sequenceCallback: SequenceSquashHandler,
     partialReplaceCallback: PartialReplaceSquashHandler,
     proposed: Array<Transaction>
-): SquashAlgorithmState {
+): Pair<SquashAlgorithmState, List<Transaction>> {
     //important pre-condition ensured by selectStateAndSubset:
     // 1. Every tx of tx.bDependencies of every tx in 'selectStateAndSubset' is also in 'selectStateAndSubset'
     val (state, selectedSubset) = selectStateAndSubset(storage, priorState, proposed)
@@ -105,18 +106,23 @@ fun findChanges(
     // 1. Every Transaction's dependencies are at a smaller index than the transaction itself + the entire dependency tree exists + acyclic
     // 2. All hashes in chain and toConsider are unique
     // 3. toConsider tx have no illegal multi level dependencies
-    val (sortedFilteredTxToConsider, denied) = dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies(selectedSubset)
+    val (sortedTxToConsider, sortDenied) = dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies(selectedSubset)
 
-    handleSortDeniedTxs(state, denied)
+    handleSortDeniedTxs(state, sortDenied)
 
-    for(tx in sortedFilteredTxToConsider) {
-        if(tx.bDependencies.isEmpty()) continue
+    val filtered = ArrayList<Transaction>(max(0, sortedTxToConsider.size - sortDenied.size))
+    for(tx in sortedTxToConsider) {
+        val txValid = tx.bDependencies.isEmpty() ||
+                determineStateAlterationsFrom(tx, proposed.asTxResolver().combineWith(storage), state, partialReplaceCallback, buildUponCallback, sequenceCallback)
 
-        val resolver = proposed.asTxResolver().combineWith(storage)
-        determineStateAlterationsFrom(tx, resolver, state, partialReplaceCallback, buildUponCallback, sequenceCallback)
+//        println(tx.hash.toString() + "(txValid("+txValid+"), txInProposed("+(tx in proposed)+"))")
+        if(txValid && tx in proposed) //too slow?
+            filtered.add(tx)
     }
+//    println("squashAlg.proposed: ${proposed.map { it.hash }}")
+//    println("squashAlg.filtered: ${filtered.map { it.hash }}")
 
-    return state
+    return Pair(state, filtered)
 }
 
 fun selectStateAndSubset(storage: WriteStorageModel, priorState: SquashAlgorithmState?, proposed: Array<Transaction>):
@@ -147,15 +153,17 @@ fun determineStateAlterationsFrom(tx: Transaction,
                                   resolver: TransactionResolver, state: SquashAlgorithmState,
                                   partialReplaceCallback: PartialReplaceSquashHandler,
                                   buildUponCallback: BuildUponSquashHandler,
-                                  sequenceCallback: SequenceSquashHandler) {
-    try {
+                                  sequenceCallback: SequenceSquashHandler) : Boolean {
+    return try {
         val uncommittedState = findChangesForTx(tx, resolver, state, buildUponCallback, partialReplaceCallback, sequenceCallback)
 
         verifyAllHashesAvailable(resolver, state, uncommittedState)
 
         commitState(state, uncommittedState)
-    } catch (ex: Exception) {
+        true
+    } catch (ex: SquashRejectedException) {
         state.deny(tx, ex)
+        false
     }
 }
 
@@ -493,7 +501,7 @@ class SquashAlgorithmState {
         rejections.add(Pair(tx, RejectionReason.SQUASH_VERIFY(ex.message?:"no reason given")))
         virtualChanges[tx.hash] = VirtualChange.Error //to create a recursive exception - if the illegal tx is required by a further tx in the loop
 
-        LOG.warning("ex on (${tx.hash}): $ex")
+        System.err.println("ex on (${tx.hash}): $ex")
         if(ex !is SquashRejectedException) ex.printStackTrace()
     }
 
@@ -522,6 +530,8 @@ class SquashAlgorithmState {
  *  if a tx0 is depended on by tx1 and tx2, where tx1 is in a block and tx2 is in the mem pool
  *  then the order of tx1 and tx2 would be undefined, except that tx1 HAS to come before tx2
  *    otherwise this algorithm could decide to reject tx1 - which is illegal because tx1 is persisted
+ *
+ * returns (sortedList, deniedTXs)
  */
 fun dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies(toSort: Iterable<Transaction>): Pair<List<Transaction>, List<Transaction>> {
     val denied = ArrayList<Transaction>()

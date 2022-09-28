@@ -102,6 +102,12 @@ open class Block: Iterable<TransactionHash> {
      */
     override fun iterator(): Iterator<TransactionHash> = txs.iterator()
 
+    fun reverseIterator() = object : Iterator<TransactionHash> {
+        var index = txs.size
+        override fun hasNext() = index > 0
+        override fun next() = txs[--index]
+    }
+
 
 
     //Immutability retaining change functionality

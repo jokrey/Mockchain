@@ -153,7 +153,7 @@ class DistributedTests {
         sleep(100)
         instance2.commitToMemPool(tx2)
         sleep(100)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         sleep(100)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
@@ -164,21 +164,21 @@ class DistributedTests {
         sleep(1000)
 
         instance1.commitToMemPool(tx3)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         instance2.commitToMemPool(tx3)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
         instance2.commitToMemPool(tx4_oo1)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
 
         instance1.commitToMemPool(tx4)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         println("now connecting")
         instance1.connect(instance2.selfLink, catchup = false)
 
         instance1.commitToMemPool(tx5)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         sleep(1000)
 
@@ -188,12 +188,16 @@ class DistributedTests {
 
     @Test
     fun forkTestSimple2_manyTx() {
+        val multiplier = 100
+
+        DebugStats.MSG_PRINTS_ACTIVE = false
+
         val instance1 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44225).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
         val instance2 = Nockchain(EmptyApplication(), P2Link.Local.forTest(44226).unsafeAsDirect(), consensus = ManualConsensusAlgorithmCreator())
 
         instance1.connect(instance2.selfLink, catchup = false)
 
-        for(i in 0 until 500) {
+        for(i in 0 until 5*multiplier) {
             instance1.commitToMemPool(Transaction(byteArrayOf(0) + rand(100)))
             sleep(10)
         }
@@ -201,19 +205,19 @@ class DistributedTests {
         (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
         //      there are array exceptions in the long part receivers
         sleep(1000)
-        for(i in 500 until 1000) {
+        for(i in 5*multiplier until 10*multiplier) {
             instance1.commitToMemPool(Transaction(byteArrayOf(1) + rand(100)))
             sleep(10)
         }
         sleep(1000)
         (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
         sleep(1000)
-        for(i in 1000 until 1500) {
+        for(i in 10*multiplier until 15*multiplier) {
             instance2.commitToMemPool(Transaction(byteArrayOf(2) + rand(100)))
             sleep(10)
         }
         sleep(1000)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         sleep(10000)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), *instance2.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
@@ -222,26 +226,26 @@ class DistributedTests {
 
         sleep(1000)
 
-        for(i in 1500 until 2000) instance1.commitToMemPool(Transaction(byteArrayOf(3) + rand(1000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        for(i in 15*multiplier until 20*multiplier) instance1.commitToMemPool(Transaction(byteArrayOf(3) + rand(1000)))
+        instance1.consensus.performConsensusRound(false)
 
-        for(i in 1500 until 2000) instance2.commitToMemPool(Transaction(byteArrayOf(3) + rand(1000)))
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
-        for(i in 2000 until 2500) instance2.commitToMemPool(Transaction(byteArrayOf(44) + rand(1000)))
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        for(i in 15*multiplier until 20*multiplier) instance2.commitToMemPool(Transaction(byteArrayOf(3) + rand(1000)))
+        instance2.consensus.performConsensusRound(false)
+        for(i in 20*multiplier until 25*multiplier) instance2.commitToMemPool(Transaction(byteArrayOf(44) + rand(1000)))
+        instance2.consensus.performConsensusRound(false)
 
-        for(i in 2000 until 2500) instance1.commitToMemPool(Transaction(byteArrayOf(4) + rand(1000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        for(i in 20*multiplier until 25*multiplier) instance1.commitToMemPool(Transaction(byteArrayOf(4) + rand(1000)))
+        instance1.consensus.performConsensusRound(false)
 
         instance1.connect(instance2.selfLink, catchup = false)
 
-        for(i in 2500 until 3000) instance1.commitToMemPool(Transaction(byteArrayOf(5) + rand(1000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        for(i in 25*multiplier until 30*multiplier) instance1.commitToMemPool(Transaction(byteArrayOf(5) + rand(1000)))
+        instance1.consensus.performConsensusRound(false)
 
         sleep(1000)
 
         instance1.commitToMemPool(Transaction(byteArrayOf(6)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         sleep(10000)
 
@@ -347,7 +351,7 @@ class DistributedTests {
         sleep(100)
         instance2.commitToMemPool(tx2)
         sleep(100)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         sleep(100)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
@@ -358,33 +362,33 @@ class DistributedTests {
         sleep(1000)
 
         instance1.commitToMemPool(tx3)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         instance2.commitToMemPool(tx3)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
         instance2.commitToMemPool(tx4_oo1)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
 
         instance1.commitToMemPool(tx4)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         for(i in 0 until 500) {
             for(j in 0 until 5)
                 instance1.commitToMemPool(Transaction(rand(2000)))
-            (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance1.consensus.performConsensusRound(false)
         }
 
         instance1.connect(instance2.selfLink, catchup = false)
 
         instance1.commitToMemPool(Transaction(rand(2000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         instance1.commitToMemPool(tx6) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         for(i in 0 until 5)
             instance1.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         for(i in 0 until 5)
             instance1.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         sleep(1000)
 
@@ -392,7 +396,7 @@ class DistributedTests {
         println("instance2.chain.getBlocks() = ${instance2.chain.getBlocks().toList()}")
 
         instance1.commitToMemPool(tx7)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         sleep(10000)
 
         helper_assertEquals(instance2.chain.getPersistedTransactions().asSequence(), *instance1.chain.getPersistedTransactions().asSequence().toList().toTypedArray())
@@ -429,7 +433,7 @@ class DistributedTests {
         sleep(100)
         instance2.commitToMemPool(tx2)
         sleep(100)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         sleep(100)
 
         helper_assertEquals(instance1.chain.getPersistedTransactions().asSequence(), tx0, tx1, tx2)
@@ -440,19 +444,19 @@ class DistributedTests {
         sleep(1000)
 
         instance1.commitToMemPool(tx3)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         instance2.commitToMemPool(tx3)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
         instance2.commitToMemPool(tx4_oo1)
-        (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance2.consensus.performConsensusRound(false)
 
         instance1.commitToMemPool(tx4)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         for(i in 0 until 10) {
             for(j in 0 until 1)
                 instance1.commitToMemPool(Transaction(rand(2000)))
-            (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance1.consensus.performConsensusRound(false)
         }
 
         instance1.connect(instance2.selfLink, catchup = false)
@@ -462,21 +466,21 @@ class DistributedTests {
             (instance3.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
             for (i in 0 until 5)
                 instance3.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-            (instance3.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance3.consensus.performConsensusRound(false)
             for (i in 0 until 5)
                 instance3.commitToMemPool(Transaction(rand(2000))) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
-            (instance3.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance3.consensus.performConsensusRound(false)
         }).start()
 
         for(j in 0 until 100)
             instance1.commitToMemPool(Transaction(rand(2000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
 
         sleep(5000)
 
         instance1.commitToMemPool(Transaction(rand(2000)))
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         sleep(5000)
 
@@ -561,9 +565,9 @@ class DistributedTests {
         instance2.commitToMemPool(tx0)
         (instance2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
         instance1.commitToMemPool(tx1)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
         instance1.commitToMemPool(tx2)
-        (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        instance1.consensus.performConsensusRound(false)
 
         instance2.connect(instance1.selfLink, catchup = true) //order is important here.. instance2 is behind and it will ask instance1 to catch her up, but if instance1 were behind instance2 would not automatically catch 'em up
 

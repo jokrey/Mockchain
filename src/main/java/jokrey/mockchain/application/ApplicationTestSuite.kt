@@ -67,10 +67,9 @@ class ApplicationTestSuite {
             val successConnectAndCatchup = chain2.connect(chain1.selfLink, catchup = true)
             assertTrue(successConnectAndCatchup)
 
-
             ConcurrentQueueTest.sleep(1000) // wait for fork to complete
 
-            assertEquals(2.0 * 3.0, (chain2.app as SingleStringCalculator).getResults()[0])
+            assertEquals(-2.0 * 3.0, (chain2.app as SingleStringCalculator).getResults()[0])
         } finally {
             chain1.close()
             chain2.close()

@@ -38,9 +38,8 @@ class VisualizationFrame(val instance: Mockchain, allowSwitchApp: Boolean = true
     init {
         val frame = JFrame(instance.app::class.java.simpleName)
 
-        var ap: AnimationJPanel? = null
-        pipe = object : AnimationPipeline(AnimationDrawerSwing()) {
-        }
+        val ap: AnimationJPanel?
+        pipe = AnimationPipeline(AnimationDrawerSwing())
 
         val chainInformationDisplay = JLabel(getChainInfoText())
         val appInformationDisplay = JLabel(getAppInfoText())
