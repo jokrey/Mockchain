@@ -35,7 +35,7 @@ class GeneralTests {
     @Test
     fun testSimpleBuildUponDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
@@ -62,7 +62,7 @@ class GeneralTests {
     @Test
     fun testSimpleReplaceDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -79,7 +79,7 @@ class GeneralTests {
     @Test
     fun testSimpleSequenceDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -98,7 +98,7 @@ class GeneralTests {
     @Test
     fun testUnresolvedDependencyCausesDenial() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
@@ -109,7 +109,7 @@ class GeneralTests {
     @Test
     fun testChangeReintroductionToChainMaintainsCorrectHashChain_nonPersistent() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
         instance.consensus.performConsensusRound(false)
@@ -142,10 +142,9 @@ class GeneralTests {
     @Test
     fun testChangeReintroductionToChainMaintainsCorrectHashChain_Persistent() {
         val instance = Mockchain(EmptyApplication(), store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/maintains_Persistent_testDir"), true))
-        instance.consensus as ManualConsensusAlgorithm
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.commitToMemPool(tx0)
-        instance.consensus.performConsensusRound(false)
+        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
         instance.consensus.performConsensusRound(false)
         instance.commitToMemPool(Transaction(contentIsArbitrary()))
@@ -169,13 +168,14 @@ class GeneralTests {
         instance.consensus.performConsensusRound(true)
 
         assertNotEquals(previous, instance.chain.getLatestHash())
+        println("blocks: "+instance.chain.getBlocks().toList())
         assertTrue(instance.chain.validateHashChain())
     }
 
     @Test
     fun testReflexiveDependencyIsBlocked() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx1.hash, DependencyType.REPLACES)))
 
@@ -186,7 +186,7 @@ class GeneralTests {
     @Test
     fun testSimpleDependencyLoopIsBlocked() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx2.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
@@ -198,7 +198,7 @@ class GeneralTests {
     @Test
     fun testComplexDependencyLoopIsBlocked() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx4.hash, DependencyType.REPLACES)))
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES)))
@@ -213,7 +213,7 @@ class GeneralTests {
     @Test
     fun testDependencyLoopDoesNotEliminateLegalTx() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(Transaction(tx0.content))
 
@@ -229,7 +229,7 @@ class GeneralTests {
     @Test
     fun testDoubleReplaceDenied() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -257,7 +257,7 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
@@ -277,7 +277,7 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON)))
@@ -295,7 +295,7 @@ class GeneralTests {
         val instance = Mockchain(object: EmptyApplication() {
             override fun getBuildUponSquashHandler(): BuildUponSquashHandler = {_, _ -> tx0.content}
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.consensus.performConsensusRound(false)
@@ -310,8 +310,8 @@ class GeneralTests {
 
     @Test
     fun testIllegalSequencesNto1() {
-        val instance = Mockchain(EmptyApplication())    
-        instance.consensus as ManualConsensusAlgorithm
+        val instance = Mockchain(EmptyApplication())
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(tx1)
@@ -324,7 +324,7 @@ class GeneralTests {
     @Test
     fun testIllegalSequences1toN() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -341,7 +341,7 @@ class GeneralTests {
     @Test
     fun testReplaceSequencePartIsIllegal() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -432,7 +432,7 @@ class GeneralTests {
                 return {_, _ -> byteArrayOf(1,2,3)}
             }
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         val tx0 = Transaction(byteArrayOf(1,2,3,5))
         val tx1 = Transaction(byteArrayOf(1,2,3,6))
@@ -494,7 +494,7 @@ class GeneralTests {
     @Test
     fun testHighlyFringeCaseInWhichPartialRejectionCausesValidationToBeDifferentFromSquash() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(tx1)
@@ -513,7 +513,7 @@ class GeneralTests {
     @Test
     fun testReplacingBuildUponDependenciesWork() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.BUILDS_UPON), Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -534,7 +534,7 @@ class GeneralTests {
                 new
             }
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         val tx0 = Transaction(byteArrayOf(1,1,3,4,5))
         val tx1 = Transaction(byteArrayOf(2,2,3,4,5))
@@ -556,7 +556,7 @@ class GeneralTests {
     @Test
     fun testReplaceBeforeSequenceWorks() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.REPLACES)))
@@ -572,7 +572,7 @@ class GeneralTests {
     @Test
     fun testBuildUponSequencePartWorks() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -589,7 +589,7 @@ class GeneralTests {
     @Test
     fun testSequencePartDependencyAlteredWorks() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx4)
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx4.hash, DependencyType.SEQUENCE_END)))
@@ -612,7 +612,7 @@ class GeneralTests {
     @Test
     fun testBuildUponSequenceEndWorks() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -629,7 +629,7 @@ class GeneralTests {
     @Test
     fun testSequenceOfSequencesWorks() {
         val instance = Mockchain(EmptyApplication())
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         instance.commitToMemPool(tx0)
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
@@ -659,7 +659,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx2.content, Dependency(tx0.hash, DependencyType.REPLACES)))
 
         val (_, denied) = jokrey.mockchain.squash.findChangesAndDeniedTransactions(instance.chain.store,
-            instance.chain.app.getPartialReplaceSquashHandler(), instance.chain.app.getBuildUponSquashHandler(), instance.chain.app.getSequenceSquashHandler(),
+            instance.app.getPartialReplaceSquashHandler(), instance.app.getBuildUponSquashHandler(), instance.app.getSequenceSquashHandler(),
             instance.memPool.getTransactions())
 
         println("denied = ${denied}")
@@ -847,7 +847,7 @@ class GeneralTests {
                 return { _, _ -> byteArrayOf(1, 2, 3, 4) }
             }
         })
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         val tx0 = Transaction(byteArrayOf(1, 2, 3, 4))
         val tx1 = Transaction(byteArrayOf(1, 2, 3),
@@ -878,7 +878,7 @@ class GeneralTests {
                 return { _, _ -> byteArrayOf(1, 2, 3, 4) }
             }
         }, store = PersistentStorage(File(System.getProperty("user.home") + "/Desktop/flipHashIsDenied_Persistent_testDir"), true))
-        instance.consensus as ManualConsensusAlgorithm
+        (instance.consensus as ManualConsensusAlgorithm)
 
         val tx0 = Transaction(byteArrayOf(1, 2, 3, 4))
         val tx1 = Transaction(byteArrayOf(1, 2, 3),
@@ -958,7 +958,7 @@ class GeneralTests {
 //
 //
 //        instance.commitToMemPool(tx0)
-//        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+//        ((instance.consensus as ManualConsensusAlgorithm) as ManualConsensusAlgorithm).performConsensusRound(true)
 //
 //        instance.commitToMemPool(Transaction(tx2.content))
 //        instance.commitToMemPool(Transaction(tx3.content, Dependency(tx2.hash, DependencyType.BUILDS_UPON), Dependency(tx2.hash, DependencyType.REPLACES_PARTIAL)))
