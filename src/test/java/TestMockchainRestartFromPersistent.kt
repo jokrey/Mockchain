@@ -17,7 +17,7 @@ class TestMockchainRestartFromPersistent {
         )
         val tx1 = Transaction("Moin".toByteArray())
         chain.commitToMemPool(tx1)
-        (chain.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (chain.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
 
         chain.close()
 
@@ -32,7 +32,7 @@ class TestMockchainRestartFromPersistent {
             store = PersistentStorage(file = File("persistentRestartTest.ldb"), clean = false)
         )
         chainRestarted.commitToMemPool(Transaction("Depending".toByteArray(), Dependency(tx1.hash, DependencyType.BUILDS_UPON)))
-        (chainRestarted.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (chainRestarted.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
 
         println("mem pool after: " + chainRestarted.memPool.getTransactionHashes().iterator().asSequence().toList())
         println("chain after: " + chainRestarted.chain.store.txIterator().asSequence().toList())

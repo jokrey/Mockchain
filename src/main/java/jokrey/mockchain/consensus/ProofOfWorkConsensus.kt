@@ -103,7 +103,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
                     val proof = Proof(proofBuilder)
 
                     try {
-                        createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, requestSquash, merkleRootOfSelectedTxs)
+                        createAndAddLocalBlock(newSquashStateInCaseOfApproval, selectedTxs, latestBlockHash, proof, if(requestSquash) -1 else 0, merkleRootOfSelectedTxs)
                         reselectTxsToBuild()
                     } catch (e: IllegalStateException) {e.printStackTrace()} //can occur in case it was paused in between
                 } else
@@ -132,7 +132,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
         }
     }
 
-    final override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
+    final override fun extractRequestSquashNumFromProof(proof: Proof) = if(proof[0] == 1.toByte()) -1 else 0
     final override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(5, proof.size - Hash.length())
     final override fun getLocalIdentity(): ByteArray = minerIdentity
     final override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean {

@@ -68,6 +68,9 @@ class ForkTests {
         )
 
         try {
+            val chain1_consensus = chain1.consensus as ManualConsensusAlgorithm
+            val chain2_consensus = chain2.consensus as ManualConsensusAlgorithm
+
             val tx11 = Transaction(Initial(if (sameInitial) 0.0 else 0.0).toTxContent())
             val tx12 = Transaction(
                 Addition(2.0).toTxContent(),
@@ -86,20 +89,20 @@ class ForkTests {
 
 
             chain1.commitToMemPool(tx11)
-            (chain1.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            chain1_consensus.performConsensusRound(0)
             chain1.commitToMemPool(tx12)
-            chain1.consensus.performConsensusRound(false)
+            chain1_consensus.performConsensusRound(0)
             chain1.commitToMemPool(tx13)
-            chain1.consensus.performConsensusRound(false)
+            chain1_consensus.performConsensusRound(0)
 
             assertEquals(2.0 * 3.0, (chain1.app as SingleStringCalculator).getResults()[0])
 
             chain2.commitToMemPool(tx21)
-            (chain2.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            chain2_consensus.performConsensusRound(0)
 
             if(noFork) {
                 chain2.commitToMemPool(tx22)
-                chain2.consensus.performConsensusRound(false)
+                chain2_consensus.performConsensusRound(0)
             }
 
             val successConnectAndCatchup = chain2.connect(chain1.selfLink, catchup = true)

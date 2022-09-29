@@ -50,18 +50,18 @@ class ApplicationTestSuite {
             chain2.consensus as ManualConsensusAlgorithm
 
             chain1.commitToMemPool(tx11)
-            chain1.consensus.performConsensusRound(false)
+            chain1.consensus.performConsensusRound(0)
             chain1.commitToMemPool(tx12)
-            chain1.consensus.performConsensusRound(false)
+            chain1.consensus.performConsensusRound(0)
             chain1.commitToMemPool(tx13)
-            chain1.consensus.performConsensusRound(false)
+            chain1.consensus.performConsensusRound(0)
 
             chain2.commitToMemPool(tx21)
-            chain2.consensus.performConsensusRound(false)
+            chain2.consensus.performConsensusRound(0)
 
             if(catchup) {
                 chain2.commitToMemPool(tx22)
-                chain2.consensus.performConsensusRound(false)
+                chain2.consensus.performConsensusRound(0)
             }
 
             val successConnectAndCatchup = chain2.connect(chain1.selfLink, catchup = true)

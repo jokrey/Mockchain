@@ -5,6 +5,7 @@ import jokrey.mockchain.storage_classes.Block
 import jokrey.mockchain.storage_classes.Hash
 import jokrey.mockchain.storage_classes.Proof
 import jokrey.mockchain.storage_classes.Transaction
+import jokrey.utilities.bitsandbytes.BitHelper
 import java.util.*
 
 /**
@@ -21,12 +22,12 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
     /**
      * Manual command to initiate proposing a new block.
      */
-    fun performConsensusRound(requestSquashManually: Boolean) {
+    fun performConsensusRound(requestSquashNumManually: Int) {
         if(isPaused) return
 
-        val requestSquash = requestSquashManually || (squashEveryNRounds>0 && roundCounter % squashEveryNRounds == 0)
+        val requestSquashNum = if (squashEveryNRounds>0 && roundCounter % squashEveryNRounds == 0) -1 else requestSquashNumManually
         val memPoolTransactions = instance.memPool.getTransactions().toList()
-        attemptCreateAndAddLocalBlock(memPoolTransactions, Proof(byteArrayOf(if(requestSquash) 1 else 0)), requestSquash = requestSquash)
+        attemptCreateAndAddLocalBlock(memPoolTransactions, Proof(BitHelper.getBytes(requestSquashNum)), requestSquashNum = requestSquashNum)
         roundCounter++
     }
 
@@ -35,17 +36,17 @@ class ManualConsensusAlgorithm(instance: Mockchain, var squashEveryNRounds: Int 
 
         if (consensusEveryNTick < 0) {
             if (Random().nextInt(-consensusEveryNTick) == 0)
-                performConsensusRound(false)
+                performConsensusRound(0)
         } else if ((tickCounter!=0 && tickCounter % consensusEveryNTick == 0) || consensusEveryNTick==1)
-            performConsensusRound(false)
+            performConsensusRound(0)
     }
 
     //allows usage in a network, though that, naturally, is discouraged and should be used with care even for testing
-    override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
+    override fun extractRequestSquashNumFromProof(proof: Proof) = BitHelper.getInt32From(proof.raw)
     override fun extractBlockCreatorIdentityFromProof(proof: Proof) = ByteArray(0)
     override fun getLocalIdentity() = ByteArray(0)
     override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash)
-            = proof.size == 1 && (proof[0] == 0.toByte() || proof[0] == 1.toByte())
+            = proof.size == 4
 
     override fun allowFork(forkIndex: Int, ownBlockHeight: Int, remoteBlockHeight: Int) = true
 

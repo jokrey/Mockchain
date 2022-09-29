@@ -3,6 +3,7 @@ package jokrey.mockchain.consensus
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.*
+import jokrey.utilities.bitsandbytes.BitHelper
 import jokrey.utilities.misc.RSAAuthHelper
 import java.security.KeyPair
 
@@ -25,14 +26,14 @@ class TriggeredProofOfStaticStake(instance: Mockchain, val preApprovedIdentities
 
     override fun run() {}
 
-    fun proposeBlockIfMyTurn(requestSquash: Boolean = false) {
+    fun proposeBlockIfMyTurn(requestSquashNum: Int = 0) {
         println("ownIndex = $ownIndex")
         println("currentIndex = $currentIndex")
         if(ownIndex == currentIndex)
-            proposeBlock(requestSquash)
+            proposeBlock(requestSquashNum)
     }
     //will not return before notifyNewLatestBlockPersisted - which resets the parameters
-    fun proposeBlock(requestSquash: Boolean = false) {
+    fun proposeBlock(requestSquashNum: Int = 0) {
         if(isPaused) return
 
         val selectedTxs = instance.memPool.getTransactions().toMutableList()
@@ -45,11 +46,11 @@ class TriggeredProofOfStaticStake(instance: Mockchain, val preApprovedIdentities
         val merkleRootOfSelectedTxs = MerkleTree(*selectedSortedTransactions.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 
-        val proofData = byteArrayOf(0) + ownKeyPair.public.encoded
+        val proofData = BitHelper.getBytes(0) + ownKeyPair.public.encoded
         val signature = RSAAuthHelper.sign(calculateMessageToSign(latestHash, merkleRootOfSelectedTxs, proofData), ownKeyPair.private)
         val proof = Proof(proofData + signature)
 
-        createAndAddLocalBlock(newSquashState, selectedSortedTransactions, latestHash, proof, requestSquash = requestSquash, merkleRoot = merkleRootOfSelectedTxs)
+        createAndAddLocalBlock(newSquashState, selectedSortedTransactions, latestHash, proof, requestSquashNum, merkleRoot = merkleRootOfSelectedTxs)
     }
 
     private fun calculateMessageToSign(previousBlockHash: Hash?, merkleRoot: Hash, proofData: ByteArray): ByteArray {
@@ -62,8 +63,8 @@ class TriggeredProofOfStaticStake(instance: Mockchain, val preApprovedIdentities
 
     override fun notifyNewTransactionInMemPool(newTx: Transaction) {  }
 
-    override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
-    override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(1, proof.size - RSAAuthHelper.signatureLength())
+    override fun extractRequestSquashNumFromProof(proof: Proof) = BitHelper.getInt32From(proof.raw, 0)
+    override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(4, proof.size - RSAAuthHelper.signatureLength())
     override fun getLocalIdentity(): ByteArray = ownKeyPair.public.encoded
     override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean {
         val allegedIdentity = extractBlockCreatorIdentityFromProof(proof)

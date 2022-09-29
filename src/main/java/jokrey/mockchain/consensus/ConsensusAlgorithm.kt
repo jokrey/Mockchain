@@ -31,12 +31,12 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     protected fun attemptCreateAndAddLocalBlock(selectedTransactions: List<Transaction>,
                                       proof: Proof,
                                       latestHash: Hash? = instance.chain.getLatestHash(),
-                                      requestSquash: Boolean = false) {
+                                      requestSquashNum: Int = 0) {
         val (newSquashState, verifiedSortedTransactions) = removeAllRejectedTransactionsFrom(
             blockCreatorIdentity = getLocalIdentity(),
             proposedTransactions = selectedTransactions
         )
-        createAndAddLocalBlock(newSquashState, verifiedSortedTransactions, latestHash, proof, requestSquash)
+        createAndAddLocalBlock(newSquashState, verifiedSortedTransactions, latestHash, proof, requestSquashNum)
     }
 
     /**
@@ -49,14 +49,14 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
                                selectedVerifiedTransactions: List<Transaction>,
                                latestHash: Hash?,
                                proof: Proof,
-                               requestSquash: Boolean = false,
+                               requestSquashNum: Int = 0,
                                merkleRoot: Hash = MerkleTree(*selectedVerifiedTransactions.map { it.hash }.toTypedArray()).getRoot()) {
         if(isPaused) throw IllegalStateException("cannot create local block if system is paused")
 
         val selectedVerifiedTransactionHashes = selectedVerifiedTransactions.map { it.hash }.toMutableList()
 
         val newBlock = Block(latestHash, proof, merkleRoot, selectedVerifiedTransactionHashes.toTypedArray())
-        val newBlockId = instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, newBlock, selectedVerifiedTransactions)
+        val newBlockId = instance.chain.squashAndAppendVerifiedNewBlock(requestSquashNum, newSquashState, newBlock, selectedVerifiedTransactions)
 
         if(newBlockId != -1)
             instance.notifyNewLocalBlockAdded(newBlock)
@@ -69,7 +69,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     internal fun attemptVerifyAndAddRemoteBlock(receivedBlock: Block, resolver: TransactionResolver, overridePause: Boolean = false): Int {
         if(isPaused && !overridePause) throw IllegalStateException("cannot create remote block if system is paused")
 
-        val requestSquash = extractRequestSquashFromProof(receivedBlock.proof)
+        val requestSquashNum = extractRequestSquashNumFromProof(receivedBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedBlock.proof)
 
         val proposedTransactions = receivedBlock.map { resolver[it] }
@@ -81,14 +81,14 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         if(verifiedSortedTransactions.size != receivedBlock.size) //if even a single transaction was rejected
             return -1
 
-        return instance.chain.squashAndAppendVerifiedNewBlock(requestSquash, newSquashState, receivedBlock, verifiedSortedTransactions)
+        return instance.chain.squashAndAppendVerifiedNewBlock(requestSquashNum, newSquashState, receivedBlock, verifiedSortedTransactions)
     }
 
 
     fun attemptVerifyAndAddForkedBlock(
         forkStore: IsolatedStorage,
         receivedForkBlock: Block, receivedBlockId: Int, resolver: TransactionResolver, forkSquashState: SquashAlgorithmState?, forkApplication: Application, isFirst: Boolean): Pair<SquashAlgorithmState?, Int> {
-        val requestSquash = extractRequestSquashFromProof(receivedForkBlock.proof)
+        val requestSquashNum = extractRequestSquashNumFromProof(receivedForkBlock.proof)
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedForkBlock.proof)
 
         val proposedTransactions = receivedForkBlock.map { resolver[it] }
@@ -104,7 +104,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         if(verifiedSortedTransactions.size != receivedForkBlock.size) //if even a single transaction was rejected
             return Pair(null, -1)
 
-        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, requestSquash, newSquashState, receivedBlockId, receivedForkBlock, verifiedSortedTransactions))
+        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, requestSquashNum, newSquashState, receivedBlockId, receivedForkBlock, verifiedSortedTransactions))
     }
 
 
@@ -115,7 +115,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     internal abstract fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean
     abstract fun allowFork(forkIndex: Int, ownBlockHeight: Int, remoteBlockHeight: Int): Boolean
 
-    protected abstract fun extractRequestSquashFromProof(proof: Proof): Boolean
+    protected abstract fun extractRequestSquashNumFromProof(proof: Proof): Int
     protected abstract fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray
     protected abstract fun getLocalIdentity(): ByteArray
 

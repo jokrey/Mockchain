@@ -44,7 +44,7 @@ class HashStressTest {
 
             fun half(bs:ByteArray) = bs.copyOf(bs.size/2)
         })
-        instance.consensus as ManualConsensusAlgorithm
+        val instance_consensus = instance.consensus as ManualConsensusAlgorithm
 
         var numberOfGeneratedTx = 0
         var numberOfGeneratedBlocks = 0
@@ -68,11 +68,11 @@ class HashStressTest {
 
             if(numberOfGeneratedTx % blockEveryTx == 0) {
                 val squash = numberOfGeneratedBlocks!=0 && numberOfGeneratedBlocks % squashEveryBlock == 0
-                instance.consensus.performConsensusRound(squash)
+                instance_consensus.performConsensusRound(if(squash) -1 else 0)
                 numberOfGeneratedBlocks++
             }
         }
 
-        instance.consensus.performConsensusRound(squashEnd)
+        instance_consensus.performConsensusRound(if(squashEnd) -1 else 0)
     }
 }

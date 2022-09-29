@@ -42,8 +42,8 @@ class SharedRandomnessTest {
         app.addNewChallengeForMeListener(kp3.public.encoded) { newChallenge, _ ->
             app.contributeToChallenge(instance, newChallenge, kp3, "3", app.generateContribution())
         }
-        consensus.performConsensusRound(false)
-        consensus.performConsensusRound(false)
+        consensus.performConsensusRound(0)
+        consensus.performConsensusRound(0)
 
         assertEquals(67, future.get(1000).size)
     }
@@ -110,9 +110,9 @@ class SharedRandomnessTest {
                 instances[0].first.generateContribution()
                 )
 
-        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
         sleep(500)
-        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
 
         assertEquals(123, future.get(1000).size)
     }
@@ -178,9 +178,9 @@ class SharedRandomnessTest {
                 instances[0].first.generateContribution()
         )
 
-        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
         sleep(500)
-        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+        (instances[0].second.consensus as ManualConsensusAlgorithm).performConsensusRound(0)
 
         assertEquals(123, future.get(1000).size)
     }

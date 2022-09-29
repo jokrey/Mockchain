@@ -3,6 +3,7 @@ package jokrey.mockchain.consensus
 import jokrey.mockchain.Mockchain
 import jokrey.mockchain.storage_classes.*
 import jokrey.utilities.*
+import jokrey.utilities.bitsandbytes.BitHelper
 import jokrey.utilities.misc.RSAAuthHelper
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
 import java.security.KeyPair
@@ -71,11 +72,11 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
         val merkleRootOfSelectedTxs = MerkleTree(*selectedSortedTransactions.map { it.hash }.toTypedArray()).getRoot()
         val latestHash = instance.chain.getLatestHash()
 
-        val proofData = byteArrayOf(0) + ownKeyPair.public.encoded
+        val proofData = BitHelper.getBytes(0) + ownKeyPair.public.encoded
         val signature = RSAAuthHelper.sign(calculateMessageToSign(latestHash, merkleRootOfSelectedTxs, proofData), ownKeyPair.private)
         val proof = Proof(proofData + signature)
 
-        createAndAddLocalBlock(newSquashState, selectedSortedTransactions, latestHash, proof, requestSquash = false, merkleRoot = merkleRootOfSelectedTxs)
+        createAndAddLocalBlock(newSquashState, selectedSortedTransactions, latestHash, proof, requestSquashNum = 0, merkleRoot = merkleRootOfSelectedTxs)
     }
 
     private fun calculateMessageToSign(previousBlockHash: Hash?, merkleRoot: Hash, proofData: ByteArray): ByteArray {
@@ -89,8 +90,8 @@ class ProofOfStaticStake(instance: Mockchain, private val fixedBlockIntervalMs: 
 
     override fun notifyNewTransactionInMemPool(newTx: Transaction) {  }
 
-    override fun extractRequestSquashFromProof(proof: Proof) = proof[0] == 1.toByte()
-    override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(1, proof.size - RSAAuthHelper.signatureLength())
+    override fun extractRequestSquashNumFromProof(proof: Proof) = BitHelper.getInt32From(proof.raw, 0)
+    override fun extractBlockCreatorIdentityFromProof(proof: Proof): ByteArray = proof.raw.copyOfRange(4, proof.size - RSAAuthHelper.signatureLength())
     override fun getLocalIdentity(): ByteArray = ownKeyPair.public.encoded
     override fun validateJustReceivedProof(proof: Proof, previousBlockHash: Hash?, merkleRoot: Hash): Boolean {
         val allegedIdentity = extractBlockCreatorIdentityFromProof(proof)

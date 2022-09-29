@@ -171,6 +171,7 @@ fun findChangesForTx(tx: Transaction, resolver: TransactionResolver, state: Squa
                      buildUponCallback: BuildUponSquashHandler,
                      partialReplaceCallback: PartialReplaceSquashHandler,
                      sequenceCallback: SequenceSquashHandler): SquashAlgorithmState {
+    println("findChangesForTx: ${tx.hash}")
     verifyNoDoubleEdges(tx.bDependencies)
 
     val uncommittedState = generateUncommittedState(state)
@@ -200,9 +201,9 @@ fun handleBuildUponDependencies(tx: Transaction, buildUponCallback: BuildUponSqu
         val newContent = buildUponCallback(dependenciesWithUpdatedContent, latestTxContent(resolver, state, uncommittedState, tx.hash))
         when {
             newContent == null || newContent.isEmpty() -> {
-                overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Deletion)
+                overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Deletion(tx.hash))
             } //all of it has been replaced by the previous transactions
-            else -> overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Alteration(newContent)) //override fine, because txp is unaltered, because changes are only done backwards or in place
+            else -> overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Alteration(tx.hash, newContent)) //override fine, because txp is unaltered, because changes are only done backwards or in place
         }
     }
 }
@@ -214,12 +215,12 @@ fun handleReplaceDependencies(tx: Transaction,
         when(latestChange(state, uncommittedState, dependency.txp)) {
             VirtualChange.Error -> throw SquashRejectedException("dependency had an error, this tx is subsequently marked as illegal")
             is VirtualChange.PartOfSequence -> throw SquashRejectedException("dependency is part of sequence should be considered deleted and can therefore not be replaced")
-            VirtualChange.Deletion -> throw SquashRejectedException("prohibited 1 to n dependency on replace edge (no two transactions can replace the same transaction[dev error, not ignored because it goes against the principle of minimization])")
+            is VirtualChange.Deletion -> throw SquashRejectedException("prohibited 1 to n dependency on replace edge (no two transactions can replace the same transaction[dev error, not ignored because it goes against the principle of minimization])")
             null, is VirtualChange.DependencyAlteration, is VirtualChange.Alteration -> { //changes have to be legal here now, because build-upon edges, might incrementally alter, but later request deletion
-                if(! resolver.contains(dependency.txp))
+                if(dependency.txp !in resolver)
                     throw SquashRejectedException("unresolved dependency detected")
-                overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion)
-                uncommittedState.virtualChanges.computeIfAbsent(tx.hash) {VirtualChange.DependencyAlteration(emptyArray())} //does nothing(causes no problems) if any other edge alters txp
+                overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion(tx.hash))
+                uncommittedState.virtualChanges.computeIfAbsent(tx.hash) {VirtualChange.DependencyAlteration(tx.hash, emptyArray())} //does nothing(causes no problems) if any other edge alters txp
             }
         }
     }
@@ -232,11 +233,11 @@ fun handlePartialReplaceDependencies(tx: Transaction, partialReplaceCallback: Pa
         val toPartiallyReplaceContent = latestTxContent(resolver, state, uncommittedState, dependency.txp, failIfSequence = true)
         val newContent = partialReplaceCallback(toPartiallyReplaceContent, latestTxContent(state, uncommittedState, tx.hash, failIfSequence =true) {tx.content})
         if(newContent == null || newContent.isEmpty()) { //all of it has been replaced
-            overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion)
+            overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion(tx.hash))
         } else {
-            overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Alteration(newContent))
+            overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Alteration(tx.hash, newContent))
         }
-        uncommittedState.virtualChanges.computeIfAbsent(tx.hash) {VirtualChange.DependencyAlteration(emptyArray())} //does nothing(causes no problems) if any other edge alters txp
+        uncommittedState.virtualChanges.computeIfAbsent(tx.hash) {VirtualChange.DependencyAlteration(tx.hash, emptyArray())} //does nothing(causes no problems) if any other edge alters txp
     }
 }
 
@@ -245,7 +246,7 @@ fun handleReplacedByDependencies(tx: Transaction,
     if(tx.bDependencies.any { it.type == DependencyType.ONE_OFF_MUTATION }) {
         if(latestChange(state, uncommittedState, tx.hash) is VirtualChange.Alteration)
             throw SquashRejectedException("replaced by dependency detected an illegal previous alteration")
-        overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Deletion)
+        overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Deletion(tx.hash))
     }
 }
 
@@ -258,7 +259,7 @@ fun handleSequenceDependencies(tx: Transaction, sequenceCallback: SequenceSquash
     val dependency = sequenceDependencies.first()
     if (sequenceDependencies.size > 1) //this takes care of n to 1 bDependencies
         throw SquashRejectedException("a tx cannot be part of multiple sequences - n to 1 on sequence edge detected")
-    if(latestChange(state, uncommittedState, tx.hash) == VirtualChange.Deletion)
+    if(latestChange(state, uncommittedState, tx.hash) is VirtualChange.Deletion)
         throw SquashRejectedException("sequence tx cannot be deleted")
     if(! resolver.contains(dependency.txp))
         throw SquashRejectedException("unresolved dependency detected")
@@ -276,9 +277,9 @@ fun handleSequenceDependencies(tx: Transaction, sequenceCallback: SequenceSquash
 fun handleSequencePartDependency(tx: Transaction, dependency: Dependency,
                                  state: SquashAlgorithmState, uncommittedState: SquashAlgorithmState) {
     when(val depChange = latestChange(state, uncommittedState, dependency.txp)) {
-        VirtualChange.Deletion, VirtualChange.Error -> throw SquashRejectedException("illegal state of dependency in sequence")
+        is VirtualChange.Deletion, VirtualChange.Error -> throw SquashRejectedException("illegal state of dependency in sequence")
         null, is VirtualChange.PartOfSequence, is VirtualChange.DependencyAlteration -> {
-            overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.PartOfSequence(null))
+            overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.PartOfSequence(tx.hash, null))
         }
         is VirtualChange.Alteration -> {
             //assuming the dependency has previously been altered, then assume that this sequence won't end
@@ -288,7 +289,7 @@ fun handleSequencePartDependency(tx: Transaction, dependency: Dependency,
             //  in case the sequence does end, this change will be overridden by a deletion - in that case this effort was meaningless,
             //     but we don't know that yet
             val updatedDependencies = tx.bDependencies.replace(dependency, TransactionHash(depChange.newContent))
-            overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.PartOfSequence(updatedDependencies))
+            overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.PartOfSequence(tx.hash, updatedDependencies))
         }
     }
 
@@ -306,12 +307,12 @@ fun handleSequenceEndDependency(tx:Transaction, sequenceCallback: SequenceSquash
         // the sequence part checks ensure this always works
         prior = priorDependencies.find(DependencyType.SEQUENCE_PART, DependencyType.SEQUENCE_END).txp
         sequence.addFirst(latestTxContent(resolver, state, uncommittedState, prior, false))
-        overrideChangeAt(state, uncommittedState, prior, VirtualChange.Deletion)
+        overrideChangeAt(state, uncommittedState, prior, VirtualChange.Deletion(tx.hash))
 
         priorDependencies = resolver[prior].bDependencies
     } while(priorDependencies.size == 1 && priorDependencies.any { it.type == DependencyType.SEQUENCE_PART } )
 
-    overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Alteration(sequenceCallback(sequence)))
+    overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.Alteration(tx.hash, sequenceCallback(sequence)))
 }
 
 fun generateUncommittedState(state: SquashAlgorithmState): SquashAlgorithmState {
@@ -325,6 +326,7 @@ fun commitState(state: SquashAlgorithmState, uncommittedState: SquashAlgorithmSt
     state.reservedHashes.putAll(uncommittedState.reservedHashes)
 
     for((uncommittedTxp, uncommittedChange) in uncommittedState.virtualChanges) {
+        println("commit - uncommittedTxp: $uncommittedTxp ($uncommittedChange)")
         val oldChange = state.virtualChanges[uncommittedTxp]
         if(oldChange is VirtualChange.Alteration) {
             state.unreserveHash(TransactionHash(oldChange.newContent), uncommittedTxp)
@@ -346,6 +348,7 @@ fun commitState(state: SquashAlgorithmState, uncommittedState: SquashAlgorithmSt
             state.virtualChanges[uncommittedTxp] = uncommittedChange
         }
     }
+    println("state.virtualChanges: "+state.virtualChanges)
 
     state.sequences.addAll(uncommittedState.sequences)
 }
@@ -390,7 +393,7 @@ fun latestTxContent(state: SquashAlgorithmState, uncommittedState: SquashAlgorit
 
 fun latestTxContent(state: SquashAlgorithmState, txp: TransactionHash, failIfSequence: Boolean, contentQuery: () -> ByteArray) =
     when(val change = state.virtualChanges[txp]) {
-        VirtualChange.Deletion -> throw SquashRejectedException("requested txp($txp) has been virtually deleted")
+        is VirtualChange.Deletion -> throw SquashRejectedException("requested txp($txp) has been virtually deleted")
         VirtualChange.Error -> throw SquashRejectedException("requested txp has been marked as having an error - this tx should also be marked as such")
         is VirtualChange.PartOfSequence ->
             if(failIfSequence) throw SquashRejectedException("tx part of sequence - consider deleted")
@@ -457,19 +460,25 @@ fun hashAvailable(oldTxp: TransactionHash, newTxp: TransactionHash,
 
 
 
-sealed class VirtualChange {
-    object Deletion : VirtualChange()
-    data class Alteration(val newContent:ByteArray) : VirtualChange() {
-        override fun equals(other: Any?) = this === other || (javaClass == other?.javaClass && other is Alteration && newContent.contentEquals(other.newContent))
+/** origin is the tx from which the change was triggered */
+sealed class VirtualChange(val origin: TransactionHash?) {
+    class Deletion(origin: TransactionHash) : VirtualChange(origin)
+    class Alteration(origin: TransactionHash, val newContent:ByteArray) : VirtualChange(origin) {
+        override fun equals(other: Any?) = super.equals(other) && other is Alteration && newContent.contentEquals(other.newContent)
         override fun hashCode() = newContent.contentHashCode()
+        override fun toString() = "[${javaClass.simpleName}(origin=$origin, newContent=${newContent.toList()})]"
     }
-    open class DependencyAlteration(val newDependencies: Array<Dependency>?) : VirtualChange() {
-        override fun equals(other: Any?) = this === other || (javaClass == other?.javaClass && other is DependencyAlteration && (newDependencies === other.newDependencies || (newDependencies!=null && other.newDependencies!= null && newDependencies.contentEquals(other.newDependencies))))
+    open class DependencyAlteration(origin: TransactionHash, val newDependencies: Array<Dependency>?) : VirtualChange(origin) {
+        override fun equals(other: Any?) = super.equals(other) && other is DependencyAlteration && (newDependencies === other.newDependencies || (newDependencies!=null && other.newDependencies!= null && newDependencies.contentEquals(other.newDependencies)))
         override fun hashCode() = newDependencies?.contentHashCode() ?: 13
-        override fun toString() = "[${javaClass.simpleName}(newDependencies=${newDependencies?.toList() ?: "null"})]"
+        override fun toString() = "[${javaClass.simpleName}(origin=$origin, newDependencies=${newDependencies?.toList() ?: "null"})]"
     }
-    class PartOfSequence(newDependencies: Array<Dependency>?) : DependencyAlteration(newDependencies)
-    object Error : VirtualChange()
+    class PartOfSequence(origin: TransactionHash, newDependencies: Array<Dependency>?) : DependencyAlteration(origin, newDependencies)
+    object Error : VirtualChange(null)
+
+    override fun equals(other: Any?) = this === other || (other is VirtualChange && origin == other.origin)
+    override fun hashCode() = origin.hashCode()
+    override fun toString() = "[${javaClass.simpleName}(origin=$origin)]"
 }
 
 class SquashAlgorithmState {
@@ -492,6 +501,19 @@ class SquashAlgorithmState {
         }
         virtualChanges.clear()
         reservedHashes.clear()
+        rejections.clear()
+    }
+    fun resetTo(numChangesIntroduced: Int) {
+        val iter = virtualChanges.iterator()
+        for (i in 0 until numChangesIntroduced) {
+            val introduced = iter.next()
+            val introducedChange = introduced.value
+            if(introducedChange is VirtualChange.Deletion)
+                sequences.remove(introduced.key) //not all sequence marker can be removed, only those that have been handled and are no longer needed
+            else if(introducedChange is VirtualChange.Alteration)
+                reservedHashes.remove(TransactionHash(introducedChange.newContent), introduced.key)
+            iter.remove()
+        }
         rejections.clear()
     }
 

@@ -35,6 +35,7 @@ class QualityOfMinizationTest {
 
             val app = source.newEqualInstance()
             val instance = Mockchain(app)
+            val instance_consensus = instance.consensus as ManualConsensusAlgorithm
             while(instance.chain.persistedTxCount() < numberOfTxToGenerate) {
                 val new = app.next(instance, txI.toLong(), random)
                 if (new.isPresent) {
@@ -46,14 +47,14 @@ class QualityOfMinizationTest {
                 }
                 txI++
                 if(txI % blockEvery == 0)
-                    (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+                    instance_consensus.performConsensusRound(0)
             }
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
+            instance_consensus.performConsensusRound(0)
 
             val before = instance.calculateStorageRequirementsInBytes()
             val beforeTxCount = instance.chain.persistedTxCount()
 
-            instance.consensus.performConsensusRound(true)
+            instance_consensus.performConsensusRound(-1)
 
             val after = instance.calculateStorageRequirementsInBytes()
             val afterTxCount = instance.chain.persistedTxCount()

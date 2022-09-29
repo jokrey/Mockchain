@@ -123,7 +123,7 @@ class PerformanceTests {
                 numberOfCurrentlyPersistedTransactions--
             }
         }, store)
-        instance.consensus as ManualConsensusAlgorithm
+        val instance_consensus = instance.consensus as ManualConsensusAlgorithm
 
         val txGenRandom = Random(1) //deterministic since seeded
 
@@ -176,7 +176,7 @@ class PerformanceTests {
                         AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                        BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
                     }
-                        instance.consensus.performConsensusRound(squash)
+                    instance_consensus.performConsensusRound(if(squash) -1 else 0)
                 numberOfGeneratedBlocks++
                     if(squash) {
                         AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
@@ -196,7 +196,7 @@ class PerformanceTests {
             if(squashEnd){ AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
             }
-        instance.consensus.performConsensusRound(squashEnd)
+        instance_consensus.performConsensusRound(if(squashEnd) -1 else 0)
         maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             if(squashEnd) { AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_end(callIdRelevantSection)

@@ -85,13 +85,13 @@ fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualC
 
 
     squashJB.addActionListener {
-        consensus.performConsensusRound(true)
+        consensus.performConsensusRound(-1)
 
         val chainHashesValid = frame.instance.chain.validateHashChain()
         if (!chainHashesValid)
             throw SadException("SQUASH RESULTED IN INCONSISTENT HASH STATE")
 
-//        consensus.performConsensusRound(false) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
+//        consensus.performConsensusRound(0) //required, otherwise the later performConsensusRound with squash will not have the same persistent state
 //
 //        val priorStorageRequirements = frame.instance.calculateStorageRequirementsInBytes()
 //
@@ -103,7 +103,7 @@ fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualC
 //        val replayedStateBeforeString = freshCompareAppBefore.exhaustiveStateDescriptor()
 //        println("replayed state before: $replayedStateBeforeString")
 //
-//        consensus.performConsensusRound(true)
+//        consensus.performConsensusRound(-1)
 //
 //        frame.recalculateDisplay()
 //
@@ -134,7 +134,7 @@ fun getManualConsensusControlPanel(frame: VisualizationFrame, consensus: ManualC
 //            throw SadException("SQUASH INCREASED DATA SIZE :(")
     }
     performConsensusJB.addActionListener {
-        consensus.performConsensusRound(false)
+        consensus.performConsensusRound(0)
     }
 
     consensusEveryNTicksInputField.setDocument(IntegersOnlyDocument())

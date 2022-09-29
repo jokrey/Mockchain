@@ -65,9 +65,9 @@ class CalculatorTest {
                 instance.commitToMemPool(new)
 
                 if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mem pool
-                    consensus.performConsensusRound(false)
+                    consensus.performConsensusRound(0)
             }
-            consensus.performConsensusRound(false)
+            consensus.performConsensusRound(0)
 
             println("result = $result")
             println("definiteState = $definiteState")
@@ -79,7 +79,7 @@ class CalculatorTest {
 
             assertEquals(result, app.getResults()[0])
 
-            consensus.performConsensusRound(true)
+            consensus.performConsensusRound(-1)
 
             assertEquals(definiteState, app.exhaustiveStateDescriptor())
 
