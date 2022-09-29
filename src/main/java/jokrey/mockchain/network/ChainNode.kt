@@ -472,7 +472,7 @@ class ChainNode(val p2lNode: P2LNode, private val instance: Nockchain) {
                 for(i in forkIndex+1 until blockCountUpTop) {
                     val blockAtI = instance.chain.queryBlock(i)
                     instance.log("sending block at: $i")
-                    result = convo.answerExpectAfterPause(blockAtI.encode(), 10_000).nextByte() //todo is the block always short enough to properly send like this? BLOCK MAXIMUM
+                    result = convo.answerExpectAfterPause(blockAtI.encode(), 60_000).nextByte() //todo is the block always short enough to properly send like this? BLOCK MAXIMUM
                     if (result == FORK_NEXT_BLOCK_PLEASE) {
                         instance.log("result == FORK_NEXT_BLOCK_PLEASE")
                         continue
