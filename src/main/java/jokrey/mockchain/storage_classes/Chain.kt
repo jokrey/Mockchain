@@ -89,20 +89,20 @@ class Chain(internal val instance: Mockchain,
             var latestHash = relayBlock.previousBlockHash
             val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
 
-//            if (squash) {
-//                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
-//
-//                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
-//                    writeStore=forkStore)
-//                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
-//                //     solve: app is presented with the relay block
-//
-//                forkSquashState.reset()
-//                proposedTransactions.clear()
-//                proposedTransactions.addAll(newlyProposedTx)
-//                if (newLatestBlockHash != null)
-//                    latestHash = newLatestBlockHash
-//            }
+            if (squash) {
+                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
+
+                val (newLatestBlockHash, newlyProposedTx) = introduceChanges(forkSquashState.virtualChanges, proposed.toTypedArray(),
+                    writeStore=forkStore)
+                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+                //     solve: app is presented with the relay block
+
+                forkSquashState.reset()
+                proposedTransactions.clear()
+                proposedTransactions.addAll(newlyProposedTx)
+                if (newLatestBlockHash != null)
+                    latestHash = newLatestBlockHash
+            }
 
             val (blockId, _) = persist(newBlockId, proposedTransactions, latestHash, relayBlock,
                 writeStore=forkStore)

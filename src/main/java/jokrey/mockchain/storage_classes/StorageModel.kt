@@ -70,7 +70,7 @@ interface BlockChainStorageIterator: Iterator<Block> {
     override fun hasNext(): Boolean
     override fun next(): Block
     fun set(element: Block)
-    fun setAndNext(element: Block)
+    fun skip()
 }
 
 /**
@@ -124,8 +124,7 @@ class NonPersistentStorage : StorageModel {
             override fun hasNext() = listIterator.hasNext()
             override fun next() = listIterator.next()
             override fun set(element: Block) = listIterator.set(element)
-            override fun setAndNext(element: Block) {
-                set(element)
+            override fun skip() {
                 next()
             }
         }
@@ -352,23 +351,22 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
     override fun muteratorFrom(index: Int): BlockChainStorageIterator {
         //println("muteratorFrom: index: $index, numberOfBlocks_uncommitted: $numberOfBlocks_uncommitted")
         return object : BlockChainStorageIterator {
-            var iterator = index
+            var iterator = index-1
             override fun hasNext() : Boolean {
-                //println("hasNext: iterator: $iterator, numberOfBlocks_uncommitted: $numberOfBlocks_uncommitted")
-                return iterator < numberOfBlocks_uncommitted
+                //println("hasNext: iterator: ${iterator+1}, numberOfBlocks_uncommitted: $numberOfBlocks_uncommitted")
+                return iterator+1 < numberOfBlocks_uncommitted
             }
             override fun next(): Block {
-                //println("next(iterator: ${iterator+1})")
-                return Block(levelDBStore[toBlockKey(iterator++)])
+                //println("next(iterator: ${iterator+1}): "+Block(levelDBStore[toBlockKey(iterator+1)]))
+                return Block(levelDBStore[toBlockKey(++iterator)])
             }
             override fun set(element: Block) {
+                //println("set: element=$element")
                 currentBatch.put(toBlockKey(iterator), element.encode())
                 if(iterator == numberOfBlocks_uncommitted-1)
                     latestHash_uncommitted = element.getHeaderHash() // this is ok, because unless the application crashes latestHash will become permanent here
             }
-            override fun setAndNext(element: Block) {
-                //println("setAndNext(iterator: $iterator, block: $element)")
-                set(element)
+            override fun skip() {
                 iterator++
             }
         }
@@ -462,7 +460,8 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
                         val block = isolatedMuterator.next()
 //                        //println("block to be set after change - previous: $previousBlock")
                         //println("block to be set after change: $block")
-                        muterator.setAndNext(block)
+                        muterator.skip()
+                        muterator.set(block)
                         for(txp in block)
                             this@PersistentStorage.add(txp, nonPers[txp])
                         this@PersistentStorage.blockCommit()//prevents out of memory issues, but keeps acid for blocks
