@@ -72,7 +72,6 @@ class Chain(internal val instance: Mockchain,
                     priorSquashState = null //must reload next time
                 }
 
-                println("squashStateToIntroduce = ${squashStateToIntroduce}")
                 if (squashStateToIntroduce != null) {
                     val (newLatestBlockHash, newlyProposedTx) =
                         introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray())
@@ -262,8 +261,6 @@ class Chain(internal val instance: Mockchain,
 
         for (entry in squashChanges) {
             val (oldHash, change) = entry
-
-            println("change on: $oldHash ($change)")
 
             val proposedTx = transactions.find { oldHash == it.hash }
                     ?: continue// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
