@@ -252,13 +252,13 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
         } else {
             levelDBStore = Iq80DBFactory.factory.open(file, Options())
             var latestBlock: Map.Entry<ByteArray, ByteArray>? = null
-            var latestBlockNumber = 0
+            var latestBlockId = 0
             var txCounter = 0
             levelDBStore.forEach {
                 if(isBlockKey(it.key)) {
                     val id = fromBlockKey(it.key)
-                    if(id > latestBlockNumber) {
-                        latestBlockNumber = id
+                    if(id > latestBlockId) {
+                        latestBlockId = id
                         latestBlock = it
                     }
                 } else { //isTxKey(it.key)
@@ -268,10 +268,9 @@ class PersistentStorage(val file: File, clean: Boolean) : StorageModel {
             val encodedLatestBlock = latestBlock?.value
             if(encodedLatestBlock != null)
                 latestHash_uncommitted = Block(encodedLatestBlock).getHeaderHash()
-            numberOfBlocks_uncommitted = latestBlockNumber
+            numberOfBlocks_uncommitted = latestBlockId + 1
             numberOfTxs_uncommitted = txCounter
         }
-
 
         latestHash = latestHash_uncommitted
         numberOfBlocks = numberOfBlocks_uncommitted
