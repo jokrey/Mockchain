@@ -76,7 +76,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
 
 //                            alreadyPainted.clear()   find another way to still show transactions that have the same contents - HASH EQUALITY PROBLEM (NOW NO LONGER REQUIRED; BECAUSE MEMPOOL DOES HASH CHECK)
                             for (entry in levels.entries.reversed()) {
-                                //first element has highest level - i.e should be the earliest transaction (or one of them) || i.e the most left drawn element
+                                //first element has the highest level - i.e. should be the earliest transaction (or one of them) || i.e. the most left drawn element
 
                                 val tx = entry.key
 //                                alreadyPainted.remove(tx)
@@ -235,7 +235,7 @@ open class TxVisualizationEngine(private val instance: Mockchain, private val tx
                         val tx = ao.tx
                         if(tx!=null) {
                             println("Clicked on: $tx")
-                            println("With raw data: " + Arrays.toString(tx.content))
+                            println("With raw data: " + tx.content.contentToString())
                             println("With parsed data: " + appDisplay.longDescriptor(tx))
                         }
                     }

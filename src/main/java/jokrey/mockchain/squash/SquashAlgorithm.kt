@@ -15,7 +15,7 @@ val LOG = Logger.getLogger("SquashAlgorithm")
  * This function is called when the algorithm hits a 'partial-replace' edge
  * It is meant to calculate the new next of the partially replaced old next
  *
- * First argument is the current content of the pointer to be altered (maybe different to the content stored in the transaction pointer, if an change has been made during this squash cycle)
+ * First argument is the current content of the pointer to be altered (maybe different to the content stored in the transaction pointer, if a change has been made during this squash cycle)
  * Second argument is the current content of the replacing tx
  * As return the new content of the old TransactionPointer (first arg) is expected - or null if the transaction has been fully replaced now
  *
@@ -34,8 +34,8 @@ typealias PartialReplaceSquashHandler = (ByteArray, ByteArray) -> ByteArray?
  * It will be called with all build-upon dependencies a transaction has (n deps to 1 tx)
  *
  * First argument is all the transactions and their latest content(potentially updated by the return of this method previously)
- * Second argument is the transaction that builds upon it's dependencies and will be replaced
- * As return the new content of the transaction that builds upon it's dependencies
+ * Second argument is the transaction that builds upon its dependencies and will be replaced
+ * As return the new content of the transaction that builds upon its dependencies
  *
  * HAS TO BE DETERMINISTIC AND IDEMPOTENT
  *   NO CHANGES TO ANY INTERNAL STATE ARE ALLOWEDPartialReplaceSquashHandler
@@ -282,10 +282,10 @@ fun handleSequencePartDependency(tx: Transaction, dependency: Dependency,
         }
         is VirtualChange.Alteration -> {
             //assuming the dependency has previously been altered, then assume that this sequence won't end
-            //    in that case the change of the dependency txp will be committed to the chain - thereby changing it's hash
-            //    that means this dependency txp (MIND YOU: of completely valid and persisted txs) would point into emptyness
+            //    in that case the change of the dependency txp will be committed to the chain - thereby changing its hash
+            //    that means this dependency txp (MIND YOU: of completely valid and persisted txs) would point into emptiness
             //    therefore we will need to repoint that txp
-            //  in case the sequence does end, this change will be overridden by a deletion - in that case this effort was meaningless
+            //  in case the sequence does end, this change will be overridden by a deletion - in that case this effort was meaningless,
             //     but we don't know that yet
             val updatedDependencies = tx.bDependencies.replace(dependency, TransactionHash(depChange.newContent))
             overrideChangeAt(state, uncommittedState, tx.hash, VirtualChange.PartOfSequence(updatedDependencies))
@@ -415,8 +415,8 @@ tailrec fun verifyAllHashesAvailable(resolver:TransactionResolver, state: Squash
             val indexOfNewTxpChange = uncommittedState.virtualChanges.keys.indexOf(newTxp)
             if (indexOfNewTxpChange == -1 || indexOfNewTxpChange < indexOfThisChange || uncommittedTxp == newTxp) {
                 //only if new txp is changed BEFORE this change we can allow it - otherwise it is in the wrong order and causes a hash issue for the chain reintroduction
-                //  the hash issue needs to be adressed within chain aswell, because of an incredibly complicated and rare issue in which
-                //    a tx is altered(its hash is freed) - that hash is reoccupied by an alteration - the original tx is deleted(the virtual change from no1 is overriden)
+                //  the hash issue needs to be addressed within chain as well, because of an incredibly complicated and rare issue in which
+                //    a tx is altered(its hash is freed) - that hash is reoccupied by an alteration - the original tx is deleted(the virtual change from no1 is overridden)
                 //    in that case everything would work logically, but in step two the hash cannot be safely reoccupied, because its hash will only become free upon deletion(which is later)
             } else {
                 uncommittedState.virtualChanges.remove(uncommittedTxp)
@@ -583,7 +583,7 @@ private fun fillLevels(transactionResolver: TransactionResolver, levels:HashMap<
 }
 
 /**
- * Updates the level of the given tx and of all it's available dependencies (queried through TransactionResolver)
+ * Updates the level of the given tx and of all its available dependencies (queried through TransactionResolver)
  *    Will not run the same tree twice
  *    TransactionResolver is expected to return the same results throughout the run of this algorithm.
  *    Levels is expected to be a thread private map
@@ -601,7 +601,7 @@ private fun updateLevel(transactionResolver: TransactionResolver, levels:HashMap
         }
         levels[tx] != null -> levels[tx]!!
         else -> {
-            levels[tx] = -2 //used as a marker to detect multi level dependency loops, so if in the recursion this has no been overridden by 'levels[tx] = maxLevel +1', then 'if(levels[tx]!=null)' above happened with the same tx
+            levels[tx] = -2 //used as a marker to detect multi level dependency loops, so if in the recursion this has not been overridden by 'levels[tx] = maxLevel +1', then 'if(levels[tx]!=null)' above happened with the same tx
             var maxLevel = 0
             for (dep in tx.bDependencies) {
                 if (dep.txp == tx.hash) {

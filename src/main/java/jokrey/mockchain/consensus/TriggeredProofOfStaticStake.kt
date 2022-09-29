@@ -26,8 +26,8 @@ class TriggeredProofOfStaticStake(instance: Mockchain, val preApprovedIdentities
     override fun run() {}
 
     fun proposeBlockIfMyTurn(requestSquash: Boolean = false) {
-        println("ownIndex = ${ownIndex}")
-        println("currentIndex = ${currentIndex}")
+        println("ownIndex = $ownIndex")
+        println("currentIndex = $currentIndex")
         if(ownIndex == currentIndex)
             proposeBlock(requestSquash)
     }

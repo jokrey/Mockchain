@@ -35,7 +35,7 @@ fun addBlockFrom(store: StorageModel, previousBlockHash: Hash?, blockTxs: Array<
  * Algorithm assumes that no external changes to block store and tx store are done
  *
  * With these assumptions it is possible to even query tx from different sources, making it even more secure.
- *     Additionally there is even less load on individual queriers
+ *     Additionally, there is even less load on individual query operations
  *
  * The for-loop can be parallelized
  *
@@ -84,13 +84,13 @@ fun catchUpWithSquash(freshApp: Application, catchUpToBlockId: Int,
         val queriedBlock = getRandomBlockQuerier(queriers)(bi)
         //      the block may then be altered on the querier, by dependencies that will end up in newBlocks
         //          i.e. the squash algorithm run in the end will do those same operation again
-        //      the other option is that a received block is altered prior to being send
+        //      the other option is that a received block is altered prior to being sent
         //          i.e. newBlocks contains dependency-changes that have already been run on the data
 
 //        val blockTxs = Array(queriedBlockSize) { KEEP COMMENT!!!!!!!!!
 //            //TODO: PROBLEM 1 - at this point it cannot be assumed that bi is still valid
 //            //TODO: PROBLEM 2 - at this point it cannot be assumed that queriedBlockSize is still correct - or that the indices correspond to different tx
-//            //TODO: - even if using txp's (querying txps of block up top, then requesting a hash here) this causes a problem
+//            //TODO: - even if using txps (querying txps of block up top, then requesting a hash here) this causes a problem
 //            //TODO: - in the meantime a txp may be deleted or, MUCH WORSE, added(but not visible from here - i.e. the result is missing data)
 //
 //            //TODO: IDEA: instead of querying tx lonely, query an entire block at once - if a querier receives such a request it reads the entire block, at once(!), and sends it

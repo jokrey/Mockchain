@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Provides the functionality for the block chain to decide what kind of transaction a transaction is.
- * Additionally it allows the transactions to be automatically deserialized and handled by the appropriate handler.
+ * Provides the functionality for the blockchain to decide what kind of transaction a transaction is.
+ * Additionally, it allows the transactions to be automatically deserialized and handled by the appropriate handler.
  */
 public class ManyTransactionHandler {
     private final HashMap<Byte, SerializedTransactionHandler> transactionHandlers_b = new HashMap<>();
@@ -47,7 +47,7 @@ public class ManyTransactionHandler {
     /**
      * Finds and calls the appropriate handler for the given transaction.
      * The Transaction is required to have been created using {@link #makeDistinct(byte, byte[])} for this method to properly work.
-     * Additionally the identifier(used in {@link #makeDistinct(byte, byte[])}) has to be known to the system and
+     * Additionally, the identifier(used in {@link #makeDistinct(byte, byte[])}) has to be known to the system and
      *              the deserializer has to work for the raw_serialized_transaction_data (used in {@link #makeDistinct(byte, byte[])}).
      * @param transaction given transaction
      * @throws UnidentifiableTransactionException if canHandle(transaction) == false
@@ -68,7 +68,7 @@ public class ManyTransactionHandler {
     /**
      * Finds and deserializes the given transaction using the appropriate deserializer for the given transaction.
      * The Transaction is required to have been created using {@link #makeDistinct(byte, byte[])} for this method to properly work.
-     * Additionally the identifier(used in {@link #makeDistinct(byte, byte[])}) has to be known to the system and
+     * Additionally, the identifier(used in {@link #makeDistinct(byte, byte[])}) has to be known to the system and
      *              the deserializer has to work for the raw_serialized_transaction_data (used in {@link #makeDistinct(byte, byte[])}).
      * @param transaction given transaction
      * @return the deserialized object.

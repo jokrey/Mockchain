@@ -128,7 +128,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     open fun stop() {}
 
 
-    //i kinda do not like the so very tight cuppling of verify and squash - but it is very required to keep this efficient
+    //I kinda do not like the so very tight coupling of verify and squash - but it is very required to keep this efficient
     /**
      * Returns new SquashAlgorithmState and sorted+verified proposed txs
      *     (must be sorted, because input is mem pool and mem pool is chaos)
@@ -204,7 +204,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         - tx selected into staged block        /by local consensus instance
         - tx among verified in staged block    /by local consensus instance
         - tx in local proposed block
-        (- local proposed block broadcast to peers
+        (- local proposed block broadcast to peers)
         - proposed block introduced into the local chain
     2.  REMOTE COMMIT - LOCAL PROPOSAL
         - tx committed remotely
@@ -221,7 +221,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         - remote proposed block received by local mockchain instance
         - proposed block proof verified        /by local consensus instance
         - ALL txs proposed of block verified   /by local consensus instance
-        (- accepted block further broadcast to peers {OR DIRECTLY AFTER PROOF VERIFY FOR SPEED??}
+        (- accepted block further broadcast to peers {OR DIRECTLY AFTER PROOF VERIFY FOR SPEED??})
         - proposed block introduced into the local chain
     4.  LOCAL COMMIT - REMOTE PROPOSAL
         - trivial

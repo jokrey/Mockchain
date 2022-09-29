@@ -18,7 +18,7 @@ import kotlin.math.max
 class PerformanceTests {
 //    @Test
     fun run_ThesisTests() {
-        LogManager.getLogManager().reset() //remove print outs - they may impact performance
+        LogManager.getLogManager().reset() //remove print-outs - they may impact performance
 
         val iterations = 101
 
@@ -49,7 +49,7 @@ class PerformanceTests {
 
 //    @Test
     fun perfTestAll() {
-    LogManager.getLogManager().reset() //remove print outs - they may impact performance
+    LogManager.getLogManager().reset() //remove print-outs - they may impact performance
 
         for(genTxNum in genTxNums) {
             for(depPerTxNum in depPerTxNums) {
@@ -176,7 +176,7 @@ class PerformanceTests {
                         AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                        BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
                     }
-                        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squash)
+                        instance.consensus.performConsensusRound(squash)
                 numberOfGeneratedBlocks++
                     if(squash) {
                         AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
@@ -196,7 +196,7 @@ class PerformanceTests {
             if(squashEnd){ AverageCallTimeMarker.mark_call_start(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_start(callIdRelevantSection)
             }
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squashEnd)
+        instance.consensus.performConsensusRound(squashEnd)
         maxStorageRequirements = max(maxStorageRequirements, instance.calculateStorageRequirementsInBytes())
             if(squashEnd) { AverageCallTimeMarker.mark_call_end(callIdRelevantSection)
 //                BoxPlotDataGatherer.mark_call_end(callIdRelevantSection)

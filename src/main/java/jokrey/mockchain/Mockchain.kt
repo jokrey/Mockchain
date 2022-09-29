@@ -55,7 +55,7 @@ open class Mockchain(app: Application,
      * Commits the given transaction to the internal Mempool.
      * If the hash of the transaction is known to the chain it will be rejected and the application will be notified.
      *
-     * The given transaction has to have an unset blockId, i.e. one that is smaller than 0. Otherwise the chain could not override that field.
+     * The given transaction has to have an unset blockId, i.e. one that is smaller than 0. Otherwise, the chain could not override that field.
      */
     open fun commitToMemPool(tx: Transaction, local: Boolean = true) {
         if (tx.blockId >= 0) throw IllegalArgumentException("block id is not decided by application. chain retains that sovereignty - app dev error")

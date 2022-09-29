@@ -53,7 +53,7 @@ class QualityOfMinizationTest {
             val before = instance.calculateStorageRequirementsInBytes()
             val beforeTxCount = instance.chain.persistedTxCount()
 
-            (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(true)
+            instance.consensus.performConsensusRound(true)
 
             val after = instance.calculateStorageRequirementsInBytes()
             val afterTxCount = instance.chain.persistedTxCount()

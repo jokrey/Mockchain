@@ -80,11 +80,11 @@ interface Application {
 
     /**
      * Alters the internal application state
-     *     should quite likely take into consideration the dependency and already alter it's internal state based on them
+     *     should quite likely take into consideration the dependency and already alter it's internal state based on them,
      *     it should NOT wait for them to be removed from the actual chain in txRemoved or txAltered
      *
-     * Implementations should not attempt to query the transactions in the block. The given transactions may neither be in mem pool or chain in some circumstances.
-     * Additionally it is less efficient than simply accessing the given list.
+     * Implementations should not attempt to query the transactions in the block. The given transactions may neither be in mem pool nor chain in some circumstances.
+     * Additionally, it is less efficient than simply accessing the given list.
      * The new transactions in the given list are in the same order as the hashes in the block.
      */
     fun newBlock(instance: Mockchain, block: Block, newTransactions: List<Transaction>)
@@ -92,25 +92,25 @@ interface Application {
     //: the following two methods might be more problem than helpful - and be theoretically not required
     //  according to the squash condition (a replay of the squashed chain should yield the same resulting application state as the old(unsquashed) chain)
     //      this condition can not be checked in a real world application
-    //  therefore an change to the application state on squash is not required
+    //  therefore a change to the application state on squash is not required
 
     /**
      * If the squash algorithm removes a tx this method is called
-     *     Generally speaking this method should not alter the internal state - only 'newBlock' should do so
+     *     Generally speaking this method should not alter the internal state - only 'newBlock' should do so.
      *     It however is required. It will need to be used by the application for dependency building.
      *     More precisely it can be used to determine that a specific transaction can no longer be depended on, since it was removed
      */
     fun txRemoved(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, txWasPersisted: Boolean)
     /**
      * If the squash algorithm alters a tx this method is called
-     *     Generally speaking this method should not alter the internal state - only 'newBlock' should do so
+     *     Generally speaking this method should not alter the internal state - only 'newBlock' should do so.
      *     It however is required. It will need to be used by the application for dependency building.
      *     More precisely it can be used to determine that a specific transaction has been altered and to store the new hash for future dependency building
      */
     fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean)
 
     /**
-     * Whenever a tx is rejected by any of the verification mechanisms that are set in place between commit to memory(mem-pool) and commit to storage(block-chain)
+     * Whenever a tx is rejected by any of the verification mechanisms that are set in place between commit to memory(mem-pool) and commit to storage(blockchain)
      *     It is also called if a tx is rejected by this application's verify method
      *
      * This method should not alter state. It should only be used to determine that a tx should no longer be used as a dependency

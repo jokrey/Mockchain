@@ -13,10 +13,7 @@ import jokrey.utilities.network.link2peer.rendezvous.IdentityTriple
 import jokrey.utilities.network.link2peer.rendezvous.RendezvousServer
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.simple.data_structure.queue.ConcurrentQueueTest.sleep
-import java.util.*
-import javax.swing.JFrame
 import javax.swing.JOptionPane
-import javax.swing.JPanel
 import javax.swing.ProgressMonitor
 import kotlin.system.exitProcess
 
@@ -34,7 +31,7 @@ fun main(args: Array<String>) {
     try {
         println("you can also try as command arguments: <ownName> <own-link> <ownkeypairencoded> <rendezvousServerLink> <yes/no-to-blockchain-ui> <contact0> <contact1> <...more contacts>")
 
-        val ownName = if (!args.isEmpty()) args[0] else
+        val ownName = if (args.isNotEmpty()) args[0] else
             JOptionPane.showInputDialog("Enter own name") ?: return
         if (ownName.isEmpty()) return
 
@@ -77,7 +74,7 @@ fun main(args: Array<String>) {
                 for (it in newlyFound) {
                     println("attempt to = $it")
                     val success = node.establishConnection(it.link).getOrNull(5000)
-                    println("connection to \"${it.name}\" - success = ${success} ")
+                    println("connection to \"${it.name}\" - success = $success ")
                     if (success != null && success) {
                         connectedPeers.add(it)
                         remainingNames.remove(it.name)

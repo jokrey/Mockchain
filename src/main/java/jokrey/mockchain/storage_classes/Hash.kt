@@ -5,7 +5,7 @@ import java.security.MessageDigest
 /**
  * Generic class representing the hash of a byte array
  *
- * By default the sha-256 hashing algorithm is used.
+ * By default, the sha-256 hashing algorithm is used.
  *
  * IMMUTABLE -> Thread Safe
  */

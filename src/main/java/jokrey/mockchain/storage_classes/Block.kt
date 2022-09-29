@@ -5,7 +5,7 @@ import java.util.*
 
 /**
  * A block is the container for transactions in the context of blockchain.
- * Since a block always contains the hash for its previous block the order on block is strictly defined and a number of block build a hashchain.
+ * Since a block always contains the hash for its previous block the order on block is strictly defined and a number of block build a hash-chain.
  *
  * IMMUTABLE -> Thread safe.
  */
@@ -51,7 +51,7 @@ open class Block: Iterable<TransactionHash> {
 
     /**
      * Encodes the current blocks contents to be persisted by the storage model.
-     * The encoding can be reveres using the appropiate constructor.
+     * The encoding can be reversed using the appropriate constructor.
      */
     fun encode() : ByteArray {
         val encoder = LIbae()
@@ -159,7 +159,7 @@ open class Block: Iterable<TransactionHash> {
         return txs.contentEquals(other.txs) && previousBlockHash == other.previousBlockHash && merkleRoot == other.merkleRoot
     }
     override fun hashCode(): Int = txs.contentHashCode()
-    override fun toString(): String = "[Block(previous=$previousBlockHash, merkle=$merkleRoot) : ${Arrays.toString(txs)}"
+    override fun toString(): String = "[Block(previous=$previousBlockHash, merkle=$merkleRoot) : ${txs.contentToString()}"
 
 }
 

@@ -1,7 +1,6 @@
 package jokrey.mockchain.visualization
 
 import jokrey.mockchain.Mockchain
-import jokrey.mockchain.Nockchain
 import jokrey.mockchain.application.examples.calculator.SingleStringCalculator
 import jokrey.mockchain.visualization.util.IntegersOnlyDocument
 import jokrey.mockchain.visualization.util.LabeledInputField

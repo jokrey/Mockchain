@@ -15,7 +15,7 @@ import kotlin.math.roundToInt
  * So is the time at which proposers propose.
  * Since time is impossible in a distributed context they can do so whenever(not checked), but are supposed to only after 'fixedBlockIntervalMs'.
  * They may only propose if it is their turn. It starts at 1 and goes around.
- *     Additionally an instance will allow blocks that come from the next proposer after fixedBlockIntervalMs*1.66.
+ *     Additionally, an instance will allow blocks that come from the next proposer after fixedBlockIntervalMs*1.66.
  *     ((todo - There should be a mechanism to penalize repeatedly missing a proposal))
  *
  * @author jokrey

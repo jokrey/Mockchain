@@ -207,29 +207,29 @@ class ChainNode(val p2lNode: P2LNode, private val instance: Nockchain) {
 
 
     //BLOCK PROTOCOL CODES
-    val DENIED_YOU_ARE_BEHIND = (-1).toByte()
-    val PROOF_INVALID = (-2).toByte()
-    val COULD_NOT_QUERY_ALL_TXP_IN_BLOCK = (-3).toByte()
-    val TX_VERIFICATION_FAILED = (-4).toByte()
-    val CONCURRENT_BLOCK_ADDED = (-5).toByte()
-    val ACTUAL_HASH_MISMATCH = (-6).toByte()
-    val MERKLE_ROOT_INVALID = (-7).toByte()
-    val ACTUAl_HEIGHT_MISMATCH = (-8).toByte()
-    val BLOCK_RECORDER_REJECTED = (-9).toByte()
-    val CONTINUE = 1.toByte()
-    val SUCCESS_THANK_YOU = 2.toByte()
-    val ACCEPT_FORK = (3).toByte()
-    val FORK_CONTINUE = (31).toByte()
-    val FORK_FOUND = (32).toByte()
-    val FORK_NEXT_BLOCK_PLEASE = (33).toByte()
-    val FORK_COMPLETE_THANKS = (34).toByte()
-    val FORK_DENIED_BY_CONSENSUS = (-31).toByte()
-    val FORK_DENIED_BY_TOO_FEW_BLOCKS = (-32).toByte()
-    val FORK_DENIED_BY_UNKNOWN = (-33).toByte()
-    val CONTINUE_ALL_AT_ONCE = 4.toByte()
-    val WILL_PROVIDE_CATCH_UP = 5.toByte()
-    val DENY_CATCH_UP = (-51).toByte()
-    val ALREADY_SAME_HEIGHT = (-52).toByte()
+    private val DENIED_YOU_ARE_BEHIND = (-1).toByte()
+    private val PROOF_INVALID = (-2).toByte()
+    private val COULD_NOT_QUERY_ALL_TXP_IN_BLOCK = (-3).toByte()
+    private val TX_VERIFICATION_FAILED = (-4).toByte()
+    private val CONCURRENT_BLOCK_ADDED = (-5).toByte()
+    private val ACTUAL_HASH_MISMATCH = (-6).toByte()
+    private val MERKLE_ROOT_INVALID = (-7).toByte()
+    private val ACTUAl_HEIGHT_MISMATCH = (-8).toByte()
+    private val BLOCK_RECORDER_REJECTED = (-9).toByte()
+    private val CONTINUE = 1.toByte()
+    private val SUCCESS_THANK_YOU = 2.toByte()
+    private val ACCEPT_FORK = (3).toByte()
+    private val FORK_CONTINUE = (31).toByte()
+    private val FORK_FOUND = (32).toByte()
+    private val FORK_NEXT_BLOCK_PLEASE = (33).toByte()
+    private val FORK_COMPLETE_THANKS = (34).toByte()
+    private val FORK_DENIED_BY_CONSENSUS = (-31).toByte()
+    private val FORK_DENIED_BY_TOO_FEW_BLOCKS = (-32).toByte()
+    private val FORK_DENIED_BY_UNKNOWN = (-33).toByte()
+    private val CONTINUE_ALL_AT_ONCE = 4.toByte()
+    private val WILL_PROVIDE_CATCH_UP = 5.toByte()
+    private val DENY_CATCH_UP = (-51).toByte()
+    private val ALREADY_SAME_HEIGHT = (-52).toByte()
 
     private fun newBlockConversation_server_init(convo: P2LConversation, m0: P2LMessage) {
 //        convo.close()
@@ -521,7 +521,7 @@ class ChainNode(val p2lNode: P2LNode, private val instance: Nockchain) {
 
         val m2_txps = convo.answerExpect(byteArrayOf(CONTINUE))
         val txps = m2_txps.asBytes().split(Hash.length()).map { TransactionHash(it, true) }
-        convo.pause() //confirm received latest message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
+        convo.pause() //confirm latest, received message, but wait for me to send another now - which may take longer, essentially wait for me to compute.
 
         //ensure all tx available (i.e. in own mempool)
         //todo - should the tx just be sent in a long message directly??

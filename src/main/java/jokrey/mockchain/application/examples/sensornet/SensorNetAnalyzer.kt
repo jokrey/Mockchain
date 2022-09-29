@@ -34,8 +34,8 @@ class SensorNetAnalyzer: VisualizableApp {
     override fun newTxInMemPool(instance: Mockchain, tx: Transaction) {}
     override fun blockVerify(instance: Mockchain, blockCreatorIdentity:ByteArray, vararg txs: Transaction): List<Pair<Transaction, RejectionReason.APP_VERIFY>> = emptyList()
 
-    //cannot introduce change before build upon, is this the right way or should the average be pre calculated??
-    //    this is kinda weird and precalculation might be even weirder
+    //cannot introduce change before build upon, is this the right way or should the average be pre- calculated??
+    //    this is kinda weird and pre-calculation might be even weirder
     override fun txAltered(instance: Mockchain, oldHash: TransactionHash, oldTx: Transaction, newHash: TransactionHash, newTx: Transaction, txWasPersisted: Boolean) {
         if(srFromTx(oldTx).second.isAverage && srFromTx(newTx).second.isAverage)
             sensorData[srFromTx(oldTx).first]!!.add(srFromTx(newTx).second)
@@ -84,7 +84,7 @@ class SensorNetAnalyzer: VisualizableApp {
     }
     override fun shortStateDescriptor() = possibleNames.joinToString {name ->
         val list = sensorData[name]
-        if(list!=null && list.isNotEmpty()) {
+        if(!list.isNullOrEmpty()) {
             val grouped = list.groupBy { it.day }
             val dailyAverages = HashMap<Long, Double>()
             for((day, listOfDay) in grouped) {
@@ -101,7 +101,7 @@ class SensorNetAnalyzer: VisualizableApp {
     }
     override fun exhaustiveStateDescriptor() = possibleNames.joinToString { name ->
         val list = sensorData[name]
-        if(list!=null && list.isNotEmpty()) {
+        if(!list.isNullOrEmpty()) {
             val grouped = list.groupBy { it.day }
             val dailyAverages = HashMap<Long, Double>()
             for((day, listOfDay) in grouped) {
@@ -135,8 +135,8 @@ class SensorNetAnalyzer: VisualizableApp {
         if(previousResults.any { it.first !=  averageName || it.second.day != averageEmptySensorResult.day}) throw SquashRejectedException()
 
         val average = previousResults.map { it.second.result }.average()
-        LOG.finest("averageName = ${averageName}")
-        LOG.finest("av = ${average}")
+        LOG.finest("averageName = $averageName")
+        LOG.finest("av = $average")
         SensorResult(averageEmptySensorResult.timestamp, average, true).getTx(averageName).content
     }
     override fun cleanUpAfterForkInvalidatedThisState() {} //NO NEED TO DO ANYTHING SINCE THE GC WILL TAKE CARE OF IT

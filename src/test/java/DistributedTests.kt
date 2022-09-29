@@ -310,7 +310,7 @@ class DistributedTests {
         for(i in 2500 until 2510) {
             instance1.commitToMemPool(Transaction(byteArrayOf(5, i.toByte()) + rand(1000)))
             (instance1.consensus as ManualConsensusAlgorithm).performConsensusRound(false) //after first consensus round the synchronization has occurred
-            sleep(10000) //we need to wait a while here... Otherwise the synchronization may not have finished - due to missing pause functionality
+            sleep(10000) //we need to wait awhile here... Otherwise, the synchronization may not have finished - due to missing pause functionality
         }
 //        for(i in 2510 until 2520) {
 //            instance2.commitToMemPool(Transaction(byteArrayOf(6, i.toByte()) + rand(1000)))
@@ -461,7 +461,7 @@ class DistributedTests {
 
         instance1.connect(instance2.selfLink, catchup = false)
 
-        Thread(Runnable {
+        Thread({
             instance3.commitToMemPool(tx6) //without the pause-and-record feature this transaction and block falls right into the fork operation and either fucks everything up or is simply rejected(I think it is the latter)
             (instance3.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
             for (i in 0 until 5)
@@ -516,7 +516,7 @@ class DistributedTests {
             val forkPoint = findForkIndex(instance1.chain, instance1.chain.blockCount(), instance2.chain.getBlocks().map { it.getHeaderHash() }, 0, instance2.chain.blockCount())
             assertForkIndexCorrect(4, forkPoint, instance1, instance2)
 
-            println("forkPoint = ${forkPoint}")
+            println("forkPoint = $forkPoint")
             println("instance1.chain.getBlocks().map { it.getHeaderHash() } = ${instance1.chain.getBlocks().map { it.getHeaderHash() }}")
             println("instance2.chain.getBlocks().map { it.getHeaderHash() } = ${instance2.chain.getBlocks().map { it.getHeaderHash() }}")
         }
@@ -569,7 +569,7 @@ class DistributedTests {
         instance1.commitToMemPool(tx2)
         instance1.consensus.performConsensusRound(false)
 
-        instance2.connect(instance1.selfLink, catchup = true) //order is important here.. instance2 is behind and it will ask instance1 to catch her up, but if instance1 were behind instance2 would not automatically catch 'em up
+        instance2.connect(instance1.selfLink, catchup = true) //order is important here. instance2 is behind, and it will ask instance1 to catch her up, but if instance1 were behind instance2 would not automatically catch 'em up
 
         DebugStats.print(true)
 
@@ -607,7 +607,7 @@ fun helper_assertEquals(txs: Sequence<Transaction>, vararg given: Transaction) {
     println("given.size = ${given.size}")
     for(g in given) {
         if(!list.contains(g))
-            println("txs missing g = ${g}")
+            println("txs missing g = $g")
         assertTrue(list.contains(g))
     }
 }

@@ -313,9 +313,9 @@ abstract class Calculation(val amount: Double, strings:IntArray = intArrayOf(1))
     fun perform(vararg before:Double): Double {
         return if(before.isEmpty()) {
             amount
-//            return perform(neutral()) //same thing as amount..
+//            return perform(neutral()) //same thing as amount...
         } else {
-            //a reduce, written out for clarity
+            //a reduce function, written out for clarity
             var r = before.first()
             for (b in before.drop(1))
                 r = newInstance(b, strings).perform(r)
@@ -330,7 +330,7 @@ abstract class Calculation(val amount: Double, strings:IntArray = intArrayOf(1))
 
     fun toTxContent(): ByteArray = LITagStringEncoder().addEntry_nocheck("op", getOperandChar().toString()).addEntryT_nocheck("amount", amount).addEntryT_nocheck("strings", strings).encodedBytes
     override fun toString(): String = "[${this.javaClass.simpleName}($amount), at strings: \"${strings.toList()}\")]"
-    fun toShortString(): String = "${getOperandChar()}${"%.1f".format(amount)}" + " in " + (if(strings.size == 1) string else Arrays.toString(strings))
+    fun toShortString(): String = "${getOperandChar()}${"%.1f".format(amount)}" + " in " + (if(strings.size == 1) string else strings.contentToString())
 }
 class Initial(amount: Double = 0.0, strings: IntArray = intArrayOf(0)) : Calculation(amount, strings) {
     override fun perform(before: Double) = amount

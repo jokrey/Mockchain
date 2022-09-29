@@ -13,7 +13,7 @@ import kotlin.concurrent.withLock
  * Adaptable proof of work consensus algorithm - proposing new blocks on its own.
  *
  * Transaction selection can be overridden.
- * Not all transactions in the mem pool need to be selected - additionally certain transactions can be added without being broadcast within the mem pool.
+ * Not all transactions in the mem pool need to be selected - Additionally, certain transactions can be added without being broadcast within the mem pool.
  * In the example of many real world PoW applications this would be an incentive for mining in which a miner can generate currency for themselves.
  *
  * Difficulty can be changed, though this currently has to occur globally, otherwise previous proofs will appear invalid.
@@ -35,7 +35,7 @@ open class ProofOfWorkConsensus(instance: Mockchain, var difficulty: Int, var mi
     open fun selectTransactions() = instance.memPool.getTransactions().toMutableList()
 
     /**
-     * Can be overriden to recalculate difficulty and whether to request a squash
+     * Can be overridden to recalculate difficulty and whether to request a squash
      */
     override fun notifyNewLatestBlockPersisted(newBlock: Block) {
         reselectTxsToBuild()

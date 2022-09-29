@@ -14,16 +14,16 @@ import kotlin.concurrent.write
 
 
 /**
- * mockchain, but with proper consensus and network. So it is not really a 'mock'chain anymore..
- * more 'not a mockchain' or nockchain.. I know it sucks as a name, but what do you have? A better one. Whoo.., I doubt it.
+ * mockchain, but with proper consensus and network. So it is not really a 'mock'chain anymore...
+ * more 'not a mockchain' or nockchain... I know it sucks as a name, but what do you have? A better one. Whooo..., I doubt it.
  *
  * Should be used exactly like the Mockchain. To the user it is only extended by the connect methods that allow connecting to peers by a link.
- * Additionally it is discouraged to use the ManualConsensusAlgorithm.
+ * Additionally, it is discouraged to use the ManualConsensusAlgorithm.
  *
  *
  * Not one chain to rule them all. For each problem a different chain.
  *   In certain(granted: rare) situations it can even be reasonable to run 2 chains from within the same program
- *   It can allow fine grained control for txs throughput and security. I.e. different tx, different stakeholder(different security clearances, some vote on this some vote on that)
+ *   It can allow fine-grained control for txs throughput and security. I.e. different tx, different stakeholder(different security clearances, some vote on this some vote on that)
  */
 class Nockchain : Mockchain {
     constructor(app: Application,

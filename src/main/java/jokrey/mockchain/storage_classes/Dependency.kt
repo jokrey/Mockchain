@@ -61,7 +61,7 @@ enum class DependencyType {
                       //  n to 1, n-level(1 transaction partially replaces many): iterative replace ALL older transactions
                       //  1 to n, n-level(many transactions partially replace 1): allowed, but it is checked that the partial transactions really replace something and something different
                       //  DIAMOND:
-    BUILDS_UPON,       //i.e the new transaction builds upon the old transaction, but does not replace or invalidate any of its data;;;
+    BUILDS_UPON,       //i.e. the new transaction builds upon the old transaction, but does not replace or invalidate any of its data;;;
     //       This also entails that the most recent transaction does not necessarily contain any of the data of transactions it builds upon
                       //       the only thing it really says is that the chain of transactions building on each other can be squashed
                       //       the main difference to Partial replace
@@ -100,5 +100,5 @@ enum class DependencyType {
                       //                                    multiple tx cannot be depended on by a single tx - 1 to n prohibited
                       //SEQUENCE INTERACTION WITH OTHERS:
                       //    Generally speaking it is perfectly legal, but it does become a problem(and therefore illegal) at a point:
-                      //    A tx that is part of a sequence cannot have it's hash altered - because otherwise a sequence might become invalid after the fact
+                      //    A tx that is part of a sequence cannot have its hash altered - because otherwise a sequence might become invalid after the fact
 }

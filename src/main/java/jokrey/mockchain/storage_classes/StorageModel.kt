@@ -76,10 +76,10 @@ interface BlockChainStorageIterator: Iterator<Block> {
 /**
  * Meant to mimic the behaviour of persistent storage, however it does some additional hash verifications for debugging purposes.
  *
- * Additionally some things like getLatestHash may have a subtly different behaviour
+ * Additionally, some things like getLatestHash may have a subtly different behaviour
  *
  * Does a few un required things that mimic Persistent Behaviour for testing
- *  (only a few mem copies more so whatever...
+ *  (only a few mem copies more so whatever...)
  */
 class NonPersistentStorage : StorageModel {
     internal val committedTXS = LinkedHashMap<TransactionHash, Transaction>()

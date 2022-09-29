@@ -61,7 +61,7 @@ class CalculatorTest {
                     Transaction(calc.toTxContent())
                 else
                     Transaction(calc.toTxContent(), Dependency(last.hash, DependencyType.BUILDS_UPON), Dependency(last.hash, DependencyType.REPLACES))
-                println("calc = ${calc}")
+                println("calc = $calc")
                 instance.commitToMemPool(new)
 
                 if(i % performConsensusEvery == 0) //NOT ANYMORE TRUE:::: not possible, due to hash changes of the bDependencies - which are invisible to the mem pool

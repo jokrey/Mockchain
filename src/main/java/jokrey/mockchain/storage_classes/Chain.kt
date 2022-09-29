@@ -28,7 +28,7 @@ val LOG = Logger.getLogger("Chain")
  *
  * Thread Safe.
  *    I.e. it is possible for a consensus algorithm to concurrently create a local block and receive a remote block.
- *    Both are verified in regards to the current state. Now one(remote) enters the squashAndAppendVerifiedNewBlock method its previous hash is verified to be equal to the real latest hash.
+ *    Both are verified in regard to the current state. Now one(remote) enters the squashAndAppendVerifiedNewBlock method its previous hash is verified to be equal to the real latest hash.
  *    It is persisted. Now the other(local) enters. The previous hash of that block is now different to the new latest hash and the block is rejected as a whole as 'out of chain order'.
  */
 class Chain(internal val instance: Mockchain,
@@ -39,7 +39,7 @@ class Chain(internal val instance: Mockchain,
     /**
      * Internal use by the consensus algorithm. Appends a verified new block and can run a squash introduction.
      *
-     * fix.me: i kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
+     * fix.me: I kinda do not like the so very tight cross dependency of verify and squash - but it is very required to keep this efficient
      *
      * returns new block id
      */
@@ -48,7 +48,7 @@ class Chain(internal val instance: Mockchain,
             var latestHash = getLatestHash()
             if (latestHash != relayBlock.previousBlockHash)
                 //CHECK HAS TO BE DONE - IT IS PART OF ENSURING THREAD SAFETY AS DETAILED ABOVE
-                //check has to be done up here, squash may change latest hash (in some storage impls)
+                //check has to be done up here, squash may change the latest hash (in some storage impls)
                 throw RejectedExecutionException("latestHash != relayBlock.previousBlockHash")
             if(proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
@@ -229,7 +229,7 @@ class Chain(internal val instance: Mockchain,
      */
     private fun introduceSquashChangesToList(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>, transactions: Array<Transaction>): Array<Transaction> {
         val squashedTx = transactions.toMutableList()
-        //find altered and deleted transactions in the proposed block and update them before hand
+        //find altered and deleted transactions in the proposed block and update them beforehand
 
         for (entry in squashChanges) {
             val (oldHash, change) = entry
@@ -313,7 +313,7 @@ class Chain(internal val instance: Mockchain,
 
 
     /**
-     * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will thrown an exepction
+     * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will throw an exception
      */
     override operator fun get(hash: TransactionHash) = getUnsure(hash)!!
 ////        rwLock.read {
@@ -375,7 +375,7 @@ class Chain(internal val instance: Mockchain,
 //        }
 
     /**
-     * Returns the latest hash currently known to the chain. Can be used to efficiently compare block chains.
+     * Returns the latest hash currently known to the chain. Can be used to efficiently compare blockchains.
      */
     fun getLatestHash() =
         rwLock.read {

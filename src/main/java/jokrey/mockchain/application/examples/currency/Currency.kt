@@ -1,7 +1,6 @@
 package jokrey.mockchain.application.examples.currency
 
 import jokrey.mockchain.Mockchain
-import jokrey.mockchain.application.Application
 import jokrey.mockchain.squash.PartialReplaceSquashHandler
 import jokrey.mockchain.squash.SquashRejectedException
 import jokrey.mockchain.storage_classes.*
@@ -9,8 +8,6 @@ import jokrey.mockchain.visualization.VisualizableApp
 import jokrey.mockchain.visualization.util.contentIsArbitrary
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.bytes.LITagBytesEncoder
 import java.util.*
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
 
 /**
  * Concept of currency as implemented on Cadeia a while back.

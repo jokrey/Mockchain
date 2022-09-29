@@ -106,7 +106,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
                 { swpe, _: Transaction? -> LOG.finest(swpe.wpe.toString());virtual!!.commitWayPointEvent(swpe.wpe) }, //loosing signatures here.. But that is fine, because after they have been written into the chain we don't need them (and previously we have checked them)
                 //    so why even persists them at all? Well.. A Transaction goes directly into the blockchain, this is required for replay
                 //    now we loose that exact replay functionality and the ability to after check, so maybe (todo) we should keep signatures
-                { sr, _: Transaction? -> LOG.finest(sr.toString());virtual = sr }) //first one is always a supply route(either creation, or previous minimization, it does not matter - all following ones are swpe's
+                { sr, _: Transaction? -> LOG.finest(sr.toString());virtual = sr }) //first one is always a supply route(either creation, or previous minimization, it does not matter - all following ones are swpes
 
         handler.handleAllTxs(list)
 
@@ -131,7 +131,7 @@ class SupplyChain(private val totalNumberOfWayPointsToGenerate:Int = 10, private
         val builder = StringBuilder()
         SupplyChainTxHandler(
                 { swpe, _ -> builder.append("Reached company(${swpe.wpe.companyName}) at way point of route(${swpe.wpe.route}) - (${swpe.wpe.stateStr()}) - ${swpe.wpe.quantity} - notes: ${swpe.wpe.notes}") },
-                { sr, _ -> builder.append("[ROUTE ${sr.name}(${sr.history.size}): ${sr.wayPointAuthenticatorsPublicKeys.size} - ${sr.wayPointAuthenticatorsPublicKeys.joinToString { Arrays.toString(it) }}]") })
+                { sr, _ -> builder.append("[ROUTE ${sr.name}(${sr.history.size}): ${sr.wayPointAuthenticatorsPublicKeys.size} - ${sr.wayPointAuthenticatorsPublicKeys.joinToString { it.contentToString() }}]") })
                 .handle(tx)
         return builder.toString()
     }
@@ -273,7 +273,7 @@ class SupplyRoute(val name: String, internal val wayPointAuthenticatorsPublicKey
     fun commitWayPointEvent(wpe: WayPointEvent) {
         val wasLast = current.commitWayPointEventReached(wpe)
 
-        LOG.finest("committed wpe = ${wpe}")
+        LOG.finest("committed wpe = $wpe")
         if(wasLast) {
             history.add(current.history())
             current = Shipment(wayPointAuthenticatorsPublicKeys.size)
@@ -294,7 +294,7 @@ class SupplyRoute(val name: String, internal val wayPointAuthenticatorsPublicKey
         return result
     }
     override fun toString(): String {
-        return "SupplyRoute(name='$name', wayPointAuthenticatorsPublicKeys=${wayPointAuthenticatorsPublicKeys.joinToString { Arrays.toString(it) }}, history=$history, current=$current)"
+        return "SupplyRoute(name='$name', wayPointAuthenticatorsPublicKeys=${wayPointAuthenticatorsPublicKeys.joinToString { it.contentToString() }}, history=$history, current=$current)"
     }
 }
 
@@ -330,15 +330,15 @@ class Shipment(private val numberOfWayPoints: Int) {
     }
     fun commitWayPointEventReached(wpe: WayPointEvent): Boolean {
         eventsPerWayPoint[currentWayPoint].add(wpe)
-        return when {
-            wpe.type == WPType.LEFT -> {
+        return when (wpe.type) {
+            WPType.LEFT -> {
                 currentWayPoint++
                 false
             }
-            wpe.type == WPType.ENTERED -> {
+            WPType.ENTERED -> {
                 currentWayPoint+1 >= numberOfWayPoints //last wp is a consumer, and entering it marks the end of a route
             }
-            wpe.type == WPType.CANCELED -> {
+            WPType.CANCELED -> {
                 currentWayPoint = eventsPerWayPoint.size
                 true
             }

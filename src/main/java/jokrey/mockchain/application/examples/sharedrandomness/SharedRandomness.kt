@@ -34,7 +34,7 @@ import kotlin.collections.HashMap
  *    a string of randomness - n random bytes
  *    the alleged own public key
  *    the alleged own name (not verified only used for the UIs)
- *    a signature of the contribution(signed with the privk of the contribution creator)
+ *    a signature of the contribution(signed with the privkey of the contribution creator)
  *
  * Todo: PROBLEM: it is possible to influence/decide the outcome of a challenge if (and only if) one is the last contributor
  *                Since the last contributor can know all previous contributions, it can retry feeding the shared-prng with different contributions until an acceptable result is output.
@@ -137,7 +137,7 @@ open class SharedRandomness(private val maxContributors:Int = 11, private val ma
                         ccimpl(challenge, list)
                 }
 
-                println("unpersistedActiveChallenges = ${unpersistedActiveChallenges}")
+                println("unpersistedActiveChallenges = $unpersistedActiveChallenges")
             }
         }
     }

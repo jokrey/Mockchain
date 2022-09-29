@@ -4,11 +4,11 @@ import jokrey.utilities.encoder.as_union.li.bytes.LIbae
 import jokrey.utilities.encoder.tag_based.implementation.paired.length_indicator.type.transformer.LITypeToBytesTransformer
 
 /**
- * The smallest part of a block chain. Transactions are in their core byte arrays that can be committed to the chain.
+ * The smallest part of a blockchain. Transactions are in their core byte arrays that can be committed to the chain.
  *
  * For the purposes of the squash concept dependencies where added.
  *
- * Additionally a transaction has received a blockId field that is automatically filled when the transaction is added to the chain and cannot be mutated after the fact.
+ * Additionally, a transaction has received a blockId field that is automatically filled when the transaction is added to the chain and cannot be mutated after the fact.
  *
  * Consider Immutable. Do not mutate the content array and it is.
  */

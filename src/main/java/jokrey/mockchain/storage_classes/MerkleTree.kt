@@ -65,7 +65,7 @@ private tailrec fun generateMerkleTree(acc: MutableList<Hash>, current: Array<ou
 
 private fun getPartialVerificationTreeFor(merkleTree: MerkleTree, leafIndex: Int) : Array<HashOrder> {
     val tree = merkleTree.tree
-    val cap = Math.ceil(log2(tree.size.toDouble())).toInt()
+    val cap = ceil(log2(tree.size.toDouble())).toInt()
 
     val result = ArrayList<HashOrder>(cap)
 

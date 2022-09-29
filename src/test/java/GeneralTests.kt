@@ -595,7 +595,7 @@ class GeneralTests {
         instance.commitToMemPool(Transaction(tx0.content, Dependency(tx4.hash, DependencyType.SEQUENCE_END)))
         instance.commitToMemPool(Transaction(tx1.content, Dependency(tx0.hash, DependencyType.SEQUENCE_PART)))
 
-        instance.consensus.performConsensusRound(true) //here for the next line to work tx1's dependency will need to be automatically altered so it points to the new tx0 hash
+        instance.consensus.performConsensusRound(true) //here for the next line to work tx1's dependency will need to be automatically altered, so it points to the new tx0 hash
 
         instance.commitToMemPool(Transaction(tx3.content, Dependency(tx1.hash, DependencyType.SEQUENCE_END)))
 
@@ -645,7 +645,7 @@ class GeneralTests {
     }
 
     //: Build-upon without replace partial or replace, does not make sense - OR DOES IT?????
-    //    if it does not- then it never makes sense: If one builds upon, then one can directly build the new tx - but that would go against the idea of transactions changing the state
+    //    if it does not, then it never makes sense: If one builds upon, then one can directly build the new tx - but that would go against the idea of transactions changing the state
     //    because then the new tx would have to directly encode the state - with build upon it can then incrementally take on the new state (in the example of calculator)
 
 
@@ -662,7 +662,7 @@ class GeneralTests {
             instance.app.getPartialReplaceSquashHandler(), instance.app.getBuildUponSquashHandler(), instance.app.getSequenceSquashHandler(),
             instance.memPool.getTransactions())
 
-        println("denied = ${denied}")
+        println("denied = $denied")
 
         assertEquals(1, denied.size)
         assertTrue(tx1.content.contentEquals(denied[0].first.content) ||  tx2.content.contentEquals(denied[0].first.content)) //order is not strictly defined
@@ -673,7 +673,7 @@ class GeneralTests {
         val app = EmptyApplication()
         val instance = Mockchain(app)
 
-        //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
+        //this emulates a more efficient chain consensus-squash algorithm that is subsequently shown to not work
         //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
 
 
@@ -737,7 +737,7 @@ class GeneralTests {
         run {
             val instance = Mockchain(EmptyApplication())
 
-            //this emulates a more efficient chain consensus-squash algorithm that is then shown to not work
+            //this emulates a more efficient chain consensus-squash algorithm that is subsequently shown to not work
             //    the real chain algorithm DOES NOT work this way - this is just supposed to show why
 
 
@@ -917,15 +917,15 @@ class GeneralTests {
             instance.commitToMemPool(tx1)
             (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(false)
 
-            //problem can (or did once) occur when replace-partial free'd a hash that is calculated by(the results of) a previous partial-replace
+            //problem can (or did once) occur when replace-partial frees a hash that is calculated by(the results of) a previous partial-replace
             //here: tx1(1,2,3,4) -> (1, 2, 3) and tx0(1,2,3) -> (1,2) (by partial)
             instance.commitToMemPool(Transaction(tx2.content, Dependency(tx1.hash, DependencyType.REPLACES_PARTIAL), Dependency(tx0.hash, DependencyType.REPLACES_PARTIAL)))
 
             println("mem: "+instance.memPool.getTransactionHashes())
 
             instance.consensus.performConsensusRound(true)
-            println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
-            println("pers after: "+instance.chain.getPersistedTransactions().asSequence().toList())
+            println("persisted after: "+instance.chain.getPersistedTransactions().asSequence().toList().map { it.hash })
+            println("persisted after: "+instance.chain.getPersistedTransactions().asSequence().toList())
 
             assertEquals(3, instance.chain.persistedTxCount())
             assertTrue(instance.chain.getPersistedTransactions().asSequence().toList().map { it.content }.any { it.contentEquals(byteArrayOf(1,2,3))})

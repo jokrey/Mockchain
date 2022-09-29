@@ -7,7 +7,7 @@ package jokrey.mockchain.storage_classes
  */
 interface TransactionResolver {
     /**
-     * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will thrown an exepction
+     * Returns the transaction at the given hash from the Mempool or permanent memory - if the hash is not resolvable the method will throw an exception
      */
     operator fun get(hash: TransactionHash) : Transaction
     /**

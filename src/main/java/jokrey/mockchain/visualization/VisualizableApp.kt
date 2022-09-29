@@ -1,8 +1,6 @@
 package jokrey.mockchain.visualization
 
-import jokrey.mockchain.application.Application
 import jokrey.mockchain.application.TestableApp
-import jokrey.mockchain.application.TransactionGenerator
 import jokrey.mockchain.storage_classes.Transaction
 
 /**
@@ -12,7 +10,7 @@ interface VisualizableApp : TestableApp, ApplicationDisplay, InteractivelyCreata
     /**
      * Creates a new transaction from the given input.
      * If the formatting of the string is roughly like return of {@link ApplicationDisplay.shortDescriptor} or {@link ApplicationDisplay.longDescriptor} it should yield a correct result.
-     * Otherwise the method can throw an exception.
+     * Otherwise, the method can throw an exception.
      */
     fun createTxFrom(input: String): Transaction
 

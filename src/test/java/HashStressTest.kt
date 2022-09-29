@@ -30,7 +30,7 @@ class HashStressTest {
 
     //the following is a function originally found for performance testing.
     //  however it revealed a lot of hash collision detection issue the algorithm still had (due to this function's high collision rate
-    //  that collision rate made it too instable for performance testing, but it is perfect for hash collision detection verification
+    //  that collision rate made it too unstable for performance testing, but it is perfect for hash collision detection verification
     private fun runDeterministicGenerationAndSquash(genTxNum: Int, minTxSize: Int, maxTxSize: Int, depNumPerTx: Int, blockEveryTx: Int, squashEveryBlock: Int, squashEnd: Boolean) {
         val random_seed = Random().nextLong()//caused nice issues with seed 1, but now it has to prove it doesn't cause issues ever
         println("Seed: $random_seed") // for replayability in case of emergency
@@ -68,11 +68,11 @@ class HashStressTest {
 
             if(numberOfGeneratedTx % blockEveryTx == 0) {
                 val squash = numberOfGeneratedBlocks!=0 && numberOfGeneratedBlocks % squashEveryBlock == 0
-                (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squash)
+                instance.consensus.performConsensusRound(squash)
                 numberOfGeneratedBlocks++
             }
         }
 
-        (instance.consensus as ManualConsensusAlgorithm).performConsensusRound(squashEnd)
+        instance.consensus.performConsensusRound(squashEnd)
     }
 }
