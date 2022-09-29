@@ -88,7 +88,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
     fun attemptVerifyAndAddForkedBlock(
         forkStore: IsolatedStorage,
         receivedForkBlock: Block, receivedBlockId: Int, resolver: TransactionResolver, forkSquashState: SquashAlgorithmState?, forkApplication: Application, isFirst: Boolean): Pair<SquashAlgorithmState?, Int> {
-        val requestSquashNum = extractRequestSquashNumFromProof(receivedForkBlock.proof)
+//        val requestSquashNum = extractRequestSquashNumFromProof(receivedForkBlock.proof)  not done here squash cannot occur during fork
         val blockCreatorIdentity = extractBlockCreatorIdentityFromProof(receivedForkBlock.proof)
 
         val proposedTransactions = receivedForkBlock.map { resolver[it] }
@@ -104,7 +104,7 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
         if(verifiedSortedTransactions.size != receivedForkBlock.size) //if even a single transaction was rejected
             return Pair(null, -1)
 
-        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, requestSquashNum, newSquashState, receivedBlockId, receivedForkBlock, verifiedSortedTransactions))
+        return Pair(newSquashState, instance.chain.appendForkBlock(forkStore, receivedBlockId, receivedForkBlock, verifiedSortedTransactions))
     }
 
 
@@ -157,13 +157,13 @@ abstract class ConsensusAlgorithm(protected val instance: Mockchain) : Runnable 
 
             AverageCallTimeMarker.mark_call_start("squash verify")
             val changes = jokrey.mockchain.squash.findChanges(
-                    storage,
-                    if(overridePreviousSquashState) previousSquashStateOverride else instance.chain.priorSquashState,
-                    app.getBuildUponSquashHandler(),
-                    app.getSequenceSquashHandler(),
-                    app.getPartialReplaceSquashHandler(),
-                    proposed.toTypedArray()
-                )
+                storage,
+                if(overridePreviousSquashState) previousSquashStateOverride else instance.chain.priorSquashState,
+                app.getBuildUponSquashHandler(),
+                app.getSequenceSquashHandler(),
+                app.getPartialReplaceSquashHandler(),
+                proposed.toTypedArray()
+            )
             newSquashState = changes.first
 
             handleRejection(proposed, newSquashState.rejections)

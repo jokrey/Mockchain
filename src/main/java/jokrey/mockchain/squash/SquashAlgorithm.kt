@@ -96,19 +96,25 @@ fun findChanges(
     buildUponCallback: BuildUponSquashHandler,
     sequenceCallback: SequenceSquashHandler,
     partialReplaceCallback: PartialReplaceSquashHandler,
-    proposed: Array<Transaction>
+    proposed: Array<Transaction>,
+    numTxLimit: Int = -1
 ): Pair<SquashAlgorithmState, List<Transaction>> {
     //important pre-condition ensured by selectStateAndSubset:
     // 1. Every tx of tx.bDependencies of every tx in 'selectStateAndSubset' is also in 'selectStateAndSubset'
+    // todo: possible speedup: limit number of selectedSubset to numTxLimit
     val (state, selectedSubset) = selectStateAndSubset(storage, priorState, proposed)
 
     //important pre-conditions ensured by dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies:
     // 1. Every Transaction's dependencies are at a smaller index than the transaction itself + the entire dependency tree exists + acyclic
     // 2. All hashes in chain and toConsider are unique
     // 3. toConsider tx have no illegal multi level dependencies
-    val (sortedTxToConsider, sortDenied) = dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies(selectedSubset)
+    var (sortedTxToConsider, sortDenied) = dependencyLevelSortWithinBlockBoundariesButAlsoEliminateMultiLevelDependencies(selectedSubset)
 
     handleSortDeniedTxs(state, sortDenied)
+
+    if(numTxLimit >= 0) {
+        sortedTxToConsider = sortedTxToConsider.subList(0, numTxLimit)
+    }
 
     val filtered = ArrayList<Transaction>(max(0, sortedTxToConsider.size - sortDenied.size))
     for(tx in sortedTxToConsider) {
@@ -116,7 +122,7 @@ fun findChanges(
                 determineStateAlterationsFrom(tx, proposed.asTxResolver().combineWith(storage), state, partialReplaceCallback, buildUponCallback, sequenceCallback)
 
 //        println(tx.hash.toString() + "(txValid("+txValid+"), txInProposed("+(tx in proposed)+"))")
-        if(txValid && tx in proposed) //too slow?
+        if(txValid && tx in proposed) //todo too slow?
             filtered.add(tx)
     }
 //    println("squashAlg.proposed: ${proposed.map { it.hash }}")
@@ -132,6 +138,7 @@ fun selectStateAndSubset(storage: WriteStorageModel, priorState: SquashAlgorithm
 //                                                                                  //      since through the intense hash checks transactions now have relationships that are invisible to any dependencies
     return if(priorState == null) {
         //it is assumed here that either the chain was restarted or this is the first round
+        //todo: maybe too many txs to fit into memory... This has to be done incrementally...
         return Pair(
                 SquashAlgorithmState(),
                 storage.getAllPersistedTransactionsWithDependenciesOrThatAreDependedUpon() +
@@ -231,7 +238,7 @@ fun handlePartialReplaceDependencies(tx: Transaction, partialReplaceCallback: Pa
     val replacePartialDependencies = tx.bDependencies.filter { it.type == DependencyType.REPLACES_PARTIAL }
     for (dependency in replacePartialDependencies) {
         val toPartiallyReplaceContent = latestTxContent(resolver, state, uncommittedState, dependency.txp, failIfSequence = true)
-        val newContent = partialReplaceCallback(toPartiallyReplaceContent, latestTxContent(state, uncommittedState, tx.hash, failIfSequence =true) {tx.content})
+        val newContent = partialReplaceCallback(toPartiallyReplaceContent, latestTxContent(state, uncommittedState, tx.hash, failIfSequence = true) {tx.content})
         if(newContent == null || newContent.isEmpty()) { //all of it has been replaced
             overrideChangeAt(state, uncommittedState, dependency.txp, VirtualChange.Deletion(tx.hash))
         } else {

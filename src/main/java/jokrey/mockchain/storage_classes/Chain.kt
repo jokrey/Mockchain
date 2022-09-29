@@ -4,6 +4,7 @@ import jokrey.mockchain.Mockchain
 import jokrey.mockchain.application.Application
 import jokrey.mockchain.squash.SquashAlgorithmState
 import jokrey.mockchain.squash.VirtualChange
+import jokrey.mockchain.squash.findChanges
 import jokrey.utilities.debug_analysis_helper.AverageCallTimeMarker
 import java.util.*
 import java.util.concurrent.RejectedExecutionException
@@ -56,22 +57,33 @@ class Chain(internal val instance: Mockchain,
             //change app state based on added transactions
             instance.app.newBlock(instance, relayBlock, proposed)
 
-            val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
+            var proposedTransactions: List<Transaction> = proposed
 
             //SQUASH
-            val squashStateToIntroduce = newSquashState ?: priorSquashState
+            var squashStateToIntroduce = newSquashState ?: priorSquashState
             priorSquashState = squashStateToIntroduce
-            if (squashNum != 0 && squashStateToIntroduce != null) {
-                val (numChangesIntroduced, newLatestBlockHash, newlyProposedTx) =
-                    introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray(), squashNum)
-                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
-                //     solve: app is presented with the relay block
+            if(squashNum != 0) {
+                if (squashNum > 0) {
+                    //partial squash (todo this is quite costly)
+                    val (partialSquashState, filtered) = getPartialSquashState(squashNum, proposedTransactions)
+                    squashStateToIntroduce = partialSquashState
+                    proposedTransactions = filtered
 
-                squashStateToIntroduce.resetTo(numChangesIntroduced)
-                proposedTransactions.clear()
-                proposedTransactions.addAll(newlyProposedTx)
-                if (newLatestBlockHash != null)
-                    latestHash = newLatestBlockHash
+                    priorSquashState = null //must reload next time
+                }
+
+                println("squashStateToIntroduce = ${squashStateToIntroduce}")
+                if (squashStateToIntroduce != null) {
+                    val (newLatestBlockHash, newlyProposedTx) =
+                        introduceChanges(squashStateToIntroduce.virtualChanges, proposedTransactions.toTypedArray())
+                    // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
+                    //     solve: app is presented with the relay block
+
+                    squashStateToIntroduce.reset()
+                    proposedTransactions = newlyProposedTx.toList()
+                    if (newLatestBlockHash != null)
+                        latestHash = newLatestBlockHash
+                }
             }
 
             //STORAGE
@@ -84,31 +96,44 @@ class Chain(internal val instance: Mockchain,
         }
     }
 
-    fun appendForkBlock(forkStore: IsolatedStorage, squashNum: Int, forkSquashState: SquashAlgorithmState, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>) : Int =
+    private fun getPartialSquashState(squashNum: Int, proposedTransactions: List<Transaction>): Pair<SquashAlgorithmState, List<Transaction>> {
+        val (newState, filtered) = findChanges(
+            store,
+            null,
+            instance.app.getBuildUponSquashHandler(),
+            instance.app.getSequenceSquashHandler(),
+            instance.app.getPartialReplaceSquashHandler(),
+            proposedTransactions.toTypedArray(),
+            squashNum
+        )
+
+        //alterations create a different hash, but subsequent tx may not have been considered...
+        for(tx in getPersistedTransactions()) {
+            if(tx.hash !in newState.virtualChanges) {
+                val newDeps = tx.bDependencies.toTypedArray()
+                var changed = false
+                for ((i, dep) in newDeps.withIndex()) {
+                    val change = newState.virtualChanges[dep.txp]
+                    if (change is VirtualChange.Alteration) {
+                        newDeps[i] = Dependency(TransactionHash(change.newContent), dep.type)
+                        changed = true
+                    }
+                }
+                if(changed)
+                    newState.virtualChanges[tx.hash] = VirtualChange.DependencyAlteration(tx.hash, newDeps)
+            }
+        }
+
+        return Pair(newState, filtered)
+    }
+
+    fun appendForkBlock(forkStore: IsolatedStorage, newBlockId: Int, relayBlock: Block, proposed: List<Transaction>) : Int =
         rwLock.write {
             if (proposed.map { it.hash }.toList() != relayBlock.toList()) throw RejectedExecutionException("proposed transactions in wrong order - dev error - should never occur")
 
-            var latestHash = relayBlock.previousBlockHash
-            val proposedTransactions: MutableList<Transaction> = proposed.toMutableList()
+            //no squashing here... squash cannot occur during fork (obviously it has not happened on the other side yet)
 
-            if (squashNum != 0) {
-                println("OTOSDOASJDAKLJSDHKAJSHD - TODO - does this work?! Is it required?! AHHH")
-
-                val (numChangesIntroduced, newLatestBlockHash, newlyProposedTx) = introduceChanges(
-                    forkSquashState.virtualChanges, proposed.toTypedArray(), squashNum,
-                    writeStore=forkStore
-                )
-                // - problem: If transactions are altered within the newest block they are invisible to both the apps 'newBlock' callback AND in the relay to other nodes...
-                //     solve: app is presented with the relay block
-
-                forkSquashState.resetTo(numChangesIntroduced)
-                proposedTransactions.clear()
-                proposedTransactions.addAll(newlyProposedTx)
-                if (newLatestBlockHash != null)
-                    latestHash = newLatestBlockHash
-            }
-
-            val (blockId, _) = persist(newBlockId, proposedTransactions, latestHash, relayBlock, writeStore=forkStore)
+            val (blockId, _) = persist(newBlockId, proposed.toList(), relayBlock.previousBlockHash, relayBlock, writeStore=forkStore)
             return blockId
         }
 
@@ -131,14 +156,12 @@ class Chain(internal val instance: Mockchain,
     }
 
     private fun introduceChanges(changes: LinkedHashMap<TransactionHash, VirtualChange>, proposed: Array<Transaction>,
-                                 numTxSquashLimit: Int,
-                                 writeStore: WriteStorageModel = store): Triple<Int, Hash?, Array<Transaction>> {
+                                 writeStore: WriteStorageModel = store): Pair<Hash?, Array<Transaction>> {
         try {
             AverageCallTimeMarker.mark_call_start("introduceChanges")
             instance.log("squashChanges = $changes")
-            val sqL = SquashNumLimiter(numTxSquashLimit)
-            val newLatestBlockHash = introduceSquashChangesToChain(changes, writeStore, sqL)
-            return Triple(sqL.numChangesIntroduced, newLatestBlockHash, introduceSquashChangesToList(changes, proposed, sqL))
+            val newLatestBlockHash = introduceSquashChangesToChain(changes, writeStore)
+            return Pair(newLatestBlockHash, introduceSquashChangesToList(changes, proposed))
         } finally {
             AverageCallTimeMarker.mark_call_end("introduceChanges")
         }
@@ -151,39 +174,12 @@ class Chain(internal val instance: Mockchain,
         override fun toString() = "VirtualBlockMutation[$deletions, $changes]"
     }
 
-    private class SquashNumLimiter(val numTxSquashLimit: Int) {
-        var numTxSquashed: Int = 0
-        var numChangesIntroduced: Int = 0
-        var lastChangeOrigin: TransactionHash? = null
-        fun limitReachedWith(change: VirtualChange) : Boolean {
-            println("limitReachedWith: $change")
-            println("lastChangeOrigin: $lastChangeOrigin")
-            println("numTxSquashLimit: $numTxSquashLimit")
-            println("numTxSquashed: $numTxSquashed")
-            println("numChangesIntroduced: $numChangesIntroduced")
-            if(lastChangeOrigin == null || lastChangeOrigin != change.origin) {
-                println("in if")
-                if(numTxSquashLimit > 0 && numTxSquashed >= numTxSquashLimit)
-                    return true
-                lastChangeOrigin = change.origin
-                numTxSquashed++
-            }
-            numChangesIntroduced++
-            return false
-        }
-    }
     private fun introduceSquashChangesToChain(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>,
-                                              writeStore: WriteStorageModel, sqL: SquashNumLimiter): Hash? {
+                                              writeStore: WriteStorageModel): Hash? {
         val mutatedBlocks = HashMap<Int, VirtualBlockMutation>()
 
         for (entry in squashChanges) {
             val (oldHash, change) = entry
-
-            println("change on: $oldHash ($change)")
-            if (sqL.limitReachedWith(change)) {
-                println("LIMIT REACHED ON: " + change)
-                break
-            }
 
             val oldTX = writeStore.getUnsure(oldHash)
                 ?: continue// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
@@ -260,7 +256,7 @@ class Chain(internal val instance: Mockchain,
     /**
      * Stable - returned list will have the same relative order, though some items may change or be removed
      */
-    private fun introduceSquashChangesToList(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>, transactions: Array<Transaction>, sqL: SquashNumLimiter): Array<Transaction> {
+    private fun introduceSquashChangesToList(squashChanges: LinkedHashMap<TransactionHash, VirtualChange>, transactions: Array<Transaction>): Array<Transaction> {
         val squashedTx = transactions.toMutableList()
         //find altered and deleted transactions in the proposed block and update them beforehand
 
@@ -268,8 +264,6 @@ class Chain(internal val instance: Mockchain,
             val (oldHash, change) = entry
 
             println("change on: $oldHash ($change)")
-            if (sqL.limitReachedWith(change))
-                break
 
             val proposedTx = transactions.find { oldHash == it.hash }
                     ?: continue// may be that the change is just a reserved hash marker or the change is to be done in mem-pool(not yet in tx store)
