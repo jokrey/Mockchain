@@ -16,6 +16,7 @@ import jokrey.utilities.network.link2peer.util.P2LFuture
 import jokrey.utilities.network.link2peer.util.P2LThreadPool
 import jokrey.utilities.simple.data_structure.stack.ConcurrentStackTest.sleep
 import org.junit.jupiter.api.Test
+import java.util.concurrent.ThreadLocalRandom
 import kotlin.test.assertEquals
 
 /**
@@ -84,7 +85,7 @@ class SharedRandomnessTest {
 
         //note: each node in 'nodes' and each identity in 'identities' has or requires knowledge of the others for this to work (except for their name)
         //      this makes for great distributed usage
-        val eachFoundIdentities = discoveredOtherIdentities.get(2000)
+        val eachFoundIdentities = discoveredOtherIdentities.get(5000)
                 .sortedBy { it.first }.map { it.second } //required to resort the rendezvous results after 'oneForAll' has possibly scrambled the order
 
         val instances = eachFoundIdentities.withIndex().map {(i, foundIdentities) ->
@@ -126,13 +127,13 @@ class SharedRandomnessTest {
         )
 
 
-        val rendezvousLink = P2Link.Local.forTest(40000).unsafeAsDirect()
+        val rendezvousLink = P2Link.Local.forTest(ThreadLocalRandom.current().nextInt(20000, 40000)).unsafeAsDirect()
         val relayServer = RendezvousServer(rendezvousLink)
 
         val nodes = listOf(
-                NodeCreator.create(P2Link.Local.forTest(20141).unsafeAsDirect()),
-                NodeCreator.create(P2Link.Local.forTest(20142).unsafeAsDirect()),
-                NodeCreator.create(P2Link.Local.forTest(20143).unsafeAsDirect())
+                NodeCreator.create(P2Link.Local.forTest(ThreadLocalRandom.current().nextInt(20000, 40000)).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(ThreadLocalRandom.current().nextInt(20000, 40000)).unsafeAsDirect()),
+                NodeCreator.create(P2Link.Local.forTest(ThreadLocalRandom.current().nextInt(20000, 40000)).unsafeAsDirect())
         )
 
         val pool = P2LThreadPool(3, 3)
